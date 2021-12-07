@@ -27,8 +27,8 @@ namespace MWPhysics
         mCollisionObject->setUserPointer(this);
 
         setScale(ptr.getCellRef().getScale());
-        setRotation(Misc::Convert::toBullet(ptr.getRefData().getBaseNode()->getAttitude()));
-        setOrigin(Misc::Convert::toBullet(ptr.getRefData().getPosition().asVec3()));
+        setRotation(ptr.getRefData().getBaseNode()->getAttitude());
+        updatePosition();
         commitPositionChange();
 
         mTaskScheduler->addCollisionObject(mCollisionObject.get(), collisionType, CollisionType_Actor|CollisionType_HeightMap|CollisionType_Projectile);
@@ -51,17 +51,17 @@ namespace MWPhysics
         mScaleUpdatePending = true;
     }
 
-    void Object::setRotation(const btQuaternion& quat)
+    void Object::setRotation(const osg::Quat& quat)
     {
         std::unique_lock<std::mutex> lock(mPositionMutex);
-        mLocalTransform.setRotation(quat);
+        mRotation = quat;
         mTransformUpdatePending = true;
     }
 
-    void Object::setOrigin(const btVector3& vec)
+    void Object::updatePosition()
     {
         std::unique_lock<std::mutex> lock(mPositionMutex);
-        mLocalTransform.setOrigin(vec);
+        mPosition = mPtr.getRefData().getPosition().asVec3();
         mTransformUpdatePending = true;
     }
 
@@ -75,7 +75,10 @@ namespace MWPhysics
         }
         if (mTransformUpdatePending)
         {
-            mCollisionObject->setWorldTransform(mLocalTransform);
+            btTransform trans;
+            trans.setOrigin(Misc::Convert::toBullet(mPosition));
+            trans.setRotation(Misc::Convert::toBullet(mRotation));
+            mCollisionObject->setWorldTransform(trans);
             mTransformUpdatePending = false;
         }
     }
@@ -93,7 +96,10 @@ namespace MWPhysics
     btTransform Object::getTransform() const
     {
         std::unique_lock<std::mutex> lock(mPositionMutex);
-        return mLocalTransform;
+        btTransform trans;
+        trans.setOrigin(Misc::Convert::toBullet(mPosition));
+        trans.setRotation(Misc::Convert::toBullet(mRotation));
+        return trans;
     }
 
     bool Object::isSolid() const
@@ -119,11 +125,8 @@ namespace MWPhysics
         assert (mShapeInstance->getCollisionShape()->isCompound());
 
         btCompoundShape* compound = static_cast<btCompoundShape*>(mShapeInstance->getCollisionShape());
-        for (const auto& shape : mShapeInstance->mAnimatedShapes)
+        for (const auto& [recIndex, shapeIndex] : mShapeInstance->mAnimatedShapes)
         {
-            int recIndex = shape.first;
-            int shapeIndex = shape.second;
-
             auto nodePathFound = mRecIndexToNodePath.find(recIndex);
             if (nodePathFound == mRecIndexToNodePath.end())
             {

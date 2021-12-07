@@ -2,7 +2,6 @@
 
 #include <components/esm/loadcell.hpp>
 #include <components/esm/loadland.hpp>
-#include <components/esm/loadmgef.hpp>
 #include <components/detournavigator/navigator.hpp>
 #include <components/misc/coordinateconverter.hpp>
 #include <components/settings/settings.hpp>
@@ -14,8 +13,6 @@
 #include "../mwworld/class.hpp"
 #include "../mwworld/cellstore.hpp"
 #include "../mwworld/inventorystore.hpp"
-
-#include "../mwphysics/collisiontype.hpp"
 
 #include "pathgrid.hpp"
 #include "creaturestats.hpp"
@@ -30,6 +27,12 @@ namespace
     float divOrMax(float dividend, float divisor)
     {
         return divisor == 0 ? std::numeric_limits<float>::max() * std::numeric_limits<float>::epsilon() : dividend / divisor;
+    }
+
+    float getPointTolerance(float speed, float duration, const osg::Vec3f& halfExtents)
+    {
+        const float actorTolerance = 2 * speed * duration + 1.2 * std::max(halfExtents.x(), halfExtents.y());
+        return std::max(MWMechanics::MIN_TOLERANCE, actorTolerance);
     }
 }
 
@@ -52,6 +55,11 @@ MWWorld::Ptr MWMechanics::AiPackage::getTarget() const
 
     if (mTargetActorId == -1)
     {
+        if (mTargetActorRefId.empty())
+        {
+            mTargetActorId = -2;
+            return MWWorld::Ptr();
+        }
         MWWorld::Ptr target = MWBase::Environment::get().getWorld()->searchPtr(mTargetActorRefId, false);
         if (target.isEmpty())
         {
@@ -100,6 +108,8 @@ bool MWMechanics::AiPackage::pathTo(const MWWorld::Ptr& actor, const osg::Vec3f&
         world->updateActorPath(actor, mPathFinder.getPath(), halfExtents, position, dest);
         return false;
     }
+
+    mLastDestinationTolerance = destTolerance;
 
     const float distToTarget = distance(position, dest);
     const bool isDestReached = (distToTarget <= destTolerance);
@@ -151,13 +161,12 @@ bool MWMechanics::AiPackage::pathTo(const MWWorld::Ptr& actor, const osg::Vec3f&
         }
     }
 
-    const float actorTolerance = 2 * actor.getClass().getMaxSpeed(actor) * duration
-            + 1.2 * std::max(halfExtents.x(), halfExtents.y());
-    const float pointTolerance = std::max(MIN_TOLERANCE, actorTolerance);
+    const float pointTolerance = getPointTolerance(actor.getClass().getMaxSpeed(actor), duration, halfExtents);
 
     static const bool smoothMovement = Settings::Manager::getBool("smooth movement", "Game");
     mPathFinder.update(position, pointTolerance, DEFAULT_TOLERANCE,
-                       /*shortenIfAlmostStraight=*/smoothMovement, actorCanMoveByZ);
+                       /*shortenIfAlmostStraight=*/smoothMovement, actorCanMoveByZ,
+                       halfExtents, getNavigatorFlags(actor));
 
     if (isDestReached || mPathFinder.checkPathCompleted()) // if path is finished
     {
@@ -184,7 +193,7 @@ bool MWMechanics::AiPackage::pathTo(const MWWorld::Ptr& actor, const osg::Vec3f&
     zTurn(actor, zAngleToNext);
     smoothTurn(actor, mPathFinder.getXAngleToNext(position.x(), position.y(), position.z()), 0);
 
-    const auto destination = mPathFinder.getPath().empty() ? dest : mPathFinder.getPath().front();
+    const auto destination = getNextPathPoint(dest);
     mObstacleCheck.update(actor, destination, duration);
 
     if (smoothMovement)
@@ -463,4 +472,16 @@ DetourNavigator::AreaCosts MWMechanics::AiPackage::getAreaCosts(const MWWorld::P
     }
 
     return costs;
+}
+
+osg::Vec3f MWMechanics::AiPackage::getNextPathPoint(const osg::Vec3f& destination) const
+{
+    return mPathFinder.getPath().empty() ? destination : mPathFinder.getPath().front();
+}
+
+float MWMechanics::AiPackage::getNextPathPointTolerance(float speed, float duration, const osg::Vec3f& halfExtents) const
+{
+    if (mPathFinder.getPathSize() <= 1)
+        return std::max(DEFAULT_TOLERANCE, mLastDestinationTolerance);
+    return getPointTolerance(speed, duration, halfExtents);
 }

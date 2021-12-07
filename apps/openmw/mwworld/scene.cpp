@@ -26,8 +26,6 @@
 #include "../mwbase/mechanicsmanager.hpp"
 #include "../mwbase/windowmanager.hpp"
 
-#include "../mwmechanics/actorutil.hpp"
-
 #include "../mwrender/renderingmanager.hpp"
 #include "../mwrender/landmanager.hpp"
 
@@ -139,11 +137,9 @@ namespace
         {
             if (ptr.getClass().isDoor() && !ptr.getCellRef().getTeleport())
             {
-                const auto shape = object->getShapeInstance()->getCollisionShape();
-
                 btVector3 aabbMin;
                 btVector3 aabbMax;
-                shape->getAabb(btTransform::getIdentity(), aabbMin, aabbMax);
+                object->getShapeInstance()->getCollisionShape()->getAabb(btTransform::getIdentity(), aabbMin, aabbMax);
 
                 const auto center = (aabbMax + aabbMin) * 0.5f;
 
@@ -170,12 +166,7 @@ namespace
 
                 navigator.addObject(
                     DetourNavigator::ObjectId(object),
-                    DetourNavigator::DoorShapes(
-                        *shape,
-                        object->getShapeInstance()->getAvoidCollisionShape(),
-                        connectionStart,
-                        connectionEnd
-                    ),
+                    DetourNavigator::DoorShapes(object->getShapeInstance(), connectionStart, connectionEnd),
                     transform
                 );
             }
@@ -183,10 +174,7 @@ namespace
             {
                 navigator.addObject(
                     DetourNavigator::ObjectId(object),
-                    DetourNavigator::ObjectShapes {
-                        *object->getShapeInstance()->getCollisionShape(),
-                        object->getShapeInstance()->getAvoidCollisionShape()
-                    },
+                    DetourNavigator::ObjectShapes(object->getShapeInstance()),
                     object->getTransform()
                 );
             }
@@ -402,7 +390,7 @@ namespace MWWorld
                 }
 
                 if (const auto heightField = mPhysics->getHeightField(cellX, cellY))
-                    navigator->addObject(DetourNavigator::ObjectId(heightField), *heightField->getShape(),
+                    navigator->addObject(DetourNavigator::ObjectId(heightField), heightField, *heightField->getShape(),
                             heightField->getCollisionObject()->getWorldTransform());
             }
 
@@ -447,12 +435,6 @@ namespace MWWorld
                     mPhysics->disableWater();
 
                 const auto player = MWBase::Environment::get().getWorld()->getPlayerPtr();
-
-                // By default the player is grounded, with the scene fully loaded, we validate and correct this.
-                if (player.mCell == cell) // Only run once, during initial cell load.
-                {
-                    mPhysics->traceDown(player, player.getRefData().getPosition().asVec3(), 10.f);
-                }
 
                 navigator->update(player.getRefData().getPosition().asVec3());
 
@@ -502,7 +484,7 @@ namespace MWWorld
     {
         const auto navigator = MWBase::Environment::get().getWorld()->getNavigator();
         const auto player = MWBase::Environment::get().getWorld()->getPlayerPtr();
-        navigator->update(player.getRefData().getPosition().asVec3());
+        navigator->updatePlayerPosition(player.getRefData().getPosition().asVec3());
 
         if (!mCurrentCell || !mCurrentCell->isExterior())
             return;
@@ -568,9 +550,8 @@ namespace MWWorld
 
         Loading::Listener* loadingListener = MWBase::Environment::get().getWindowManager()->getLoadingScreen();
         Loading::ScopedLoad load(loadingListener);
-        int messagesCount = MWBase::Environment::get().getWindowManager()->getMessagesCount();
         std::string loadingExteriorText = "#{sLoadingMessage3}";
-        loadingListener->setLabel(loadingExteriorText, false, messagesCount > 0);
+        loadingListener->setLabel(loadingExteriorText);
         loadingListener->setProgressRange(refsToLoad);
 
         const auto getDistanceToPlayerCell = [&] (const std::pair<int, int>& cellPosition)
@@ -620,6 +601,8 @@ namespace MWWorld
 
         if (changeEvent)
             mCellChanged = true;
+
+        mNavigator.wait(*loadingListener, DetourNavigator::WaitConditionType::requiredTilesPresent);
     }
 
     void Scene::testExteriorCells()
@@ -798,9 +781,8 @@ namespace MWWorld
             MWBase::Environment::get().getWindowManager()->fadeScreenOut(0.5);
 
         Loading::Listener* loadingListener = MWBase::Environment::get().getWindowManager()->getLoadingScreen();
-        int messagesCount = MWBase::Environment::get().getWindowManager()->getMessagesCount();
         std::string loadingInteriorText = "#{sLoadingMessage2}";
-        loadingListener->setLabel(loadingInteriorText, false, messagesCount > 0);
+        loadingListener->setLabel(loadingInteriorText);
         Loading::ScopedLoad load(loadingListener);
 
         if(mCurrentCell != nullptr && *mCurrentCell == *cell)
@@ -847,6 +829,8 @@ namespace MWWorld
             MWBase::Environment::get().getWindowManager()->fadeScreenIn(0.5);
 
         MWBase::Environment::get().getWindowManager()->changeCell(mCurrentCell);
+
+        mNavigator.wait(*loadingListener, DetourNavigator::WaitConditionType::requiredTilesPresent);
     }
 
     void Scene::changeToExteriorCell (const ESM::Position& position, bool adjustPlayerPos, bool changeEvent)

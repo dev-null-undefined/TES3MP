@@ -4,8 +4,8 @@
 #include "asyncnavmeshupdater.hpp"
 #include "cachedrecastmeshmanager.hpp"
 #include "offmeshconnectionsmanager.hpp"
-#include "sharednavmesh.hpp"
 #include "recastmeshtiles.hpp"
+#include "waitconditiontype.hpp"
 
 #include <BulletCollision/CollisionShapes/btHeightfieldTerrainShape.h>
 
@@ -23,10 +23,10 @@ namespace DetourNavigator
     public:
         NavMeshManager(const Settings& settings);
 
-        bool addObject(const ObjectId id, const btCollisionShape& shape, const btTransform& transform,
+        bool addObject(const ObjectId id, const CollisionShape& shape, const btTransform& transform,
                        const AreaType areaType);
 
-        bool updateObject(const ObjectId id, const btCollisionShape& shape, const btTransform& transform,
+        bool updateObject(const ObjectId id, const CollisionShape& shape, const btTransform& transform,
                           const AreaType areaType);
 
         bool removeObject(const ObjectId id);
@@ -45,7 +45,7 @@ namespace DetourNavigator
 
         void update(osg::Vec3f playerPosition, const osg::Vec3f& agentHalfExtents);
 
-        void wait();
+        void wait(Loading::Listener& listener, WaitConditionType waitConditionType);
 
         SharedNavMeshCacheItem getNavMesh(const osg::Vec3f& agentHalfExtents) const;
 

@@ -6,8 +6,10 @@
 #include "settings.hpp"
 #include "objectid.hpp"
 #include "navmeshcacheitem.hpp"
-#include "recastmesh.hpp"
 #include "recastmeshtiles.hpp"
+#include "waitconditiontype.hpp"
+
+#include <components/resource/bulletshape.hpp>
 
 namespace ESM
 {
@@ -15,15 +17,19 @@ namespace ESM
     struct Pathgrid;
 }
 
+namespace Loading
+{
+    class Listener;
+}
+
 namespace DetourNavigator
 {
     struct ObjectShapes
     {
-        const btCollisionShape& mShape;
-        const btCollisionShape* mAvoid;
+        osg::ref_ptr<const Resource::BulletShapeInstance> mShapeInstance;
 
-        ObjectShapes(const btCollisionShape& shape, const btCollisionShape* avoid)
-            : mShape(shape), mAvoid(avoid)
+        ObjectShapes(const osg::ref_ptr<const Resource::BulletShapeInstance>& shapeInstance)
+            : mShapeInstance(shapeInstance)
         {}
     };
 
@@ -32,9 +38,9 @@ namespace DetourNavigator
         osg::Vec3f mConnectionStart;
         osg::Vec3f mConnectionEnd;
 
-        DoorShapes(const btCollisionShape& shape, const btCollisionShape* avoid,
+        DoorShapes(const osg::ref_ptr<const Resource::BulletShapeInstance>& shapeInstance,
                    const osg::Vec3f& connectionStart,const osg::Vec3f& connectionEnd)
-            : ObjectShapes(shape, avoid)
+            : ObjectShapes(shapeInstance)
             , mConnectionStart(connectionStart)
             , mConnectionEnd(connectionEnd)
         {}
@@ -65,13 +71,15 @@ namespace DetourNavigator
         virtual void removeAgent(const osg::Vec3f& agentHalfExtents) = 0;
 
         /**
-         * @brief addObject is used to add object represented by single btCollisionShape and btTransform.
+         * @brief addObject is used to add object represented by single btHeightfieldTerrainShape and btTransform.
          * @param id is used to distinguish different objects.
-         * @param shape must live until object is updated by another shape removed from Navigator.
+         * @param holder shape wrapper to keep shape lifetime after object is removed.
+         * @param shape must be wrapped by holder.
          * @param transform allows to setup object geometry according to its world state.
          * @return true if object is added, false if there is already object with given id.
          */
-        virtual bool addObject(const ObjectId id, const btCollisionShape& shape, const btTransform& transform) = 0;
+        virtual bool addObject(const ObjectId id, const osg::ref_ptr<const osg::Object>& holder,
+                               const btHeightfieldTerrainShape& shape, const btTransform& transform) = 0;
 
         /**
          * @brief addObject is used to add complex object with allowed to walk and avoided to walk shapes
@@ -90,15 +98,6 @@ namespace DetourNavigator
          * @return true if object is added, false if there is already object with given id.
          */
         virtual bool addObject(const ObjectId id, const DoorShapes& shapes, const btTransform& transform) = 0;
-
-        /**
-         * @brief updateObject replace object geometry by given data.
-         * @param id is used to find object.
-         * @param shape must live until object is updated by another shape removed from Navigator.
-         * @param transform allows to setup objects geometry according to its world state.
-         * @return true if object is updated, false if there is no object with given id.
-         */
-        virtual bool updateObject(const ObjectId id, const btCollisionShape& shape, const btTransform& transform) = 0;
 
         /**
          * @brief updateObject replace object geometry by given data.
@@ -150,10 +149,16 @@ namespace DetourNavigator
         virtual void removePathgrid(const ESM::Pathgrid& pathgrid) = 0;
 
         /**
-         * @brief update start background navmesh update using current scene state.
+         * @brief update starts background navmesh update using current scene state.
          * @param playerPosition setup initial point to order build tiles of navmesh.
          */
         virtual void update(const osg::Vec3f& playerPosition) = 0;
+
+        /**
+         * @brief updatePlayerPosition starts background navmesh update using current scene state only when player position has been changed.
+         * @param playerPosition setup initial point to order build tiles of navmesh.
+         */
+        virtual void updatePlayerPosition(const osg::Vec3f& playerPosition) = 0;
 
         /**
          * @brief disable navigator updates
@@ -161,9 +166,10 @@ namespace DetourNavigator
         virtual void setUpdatesEnabled(bool enabled) = 0;
 
         /**
-         * @brief wait locks thread until all tiles are updated from last update call.
+         * @brief wait locks thread until tiles are updated from last update call based on passed condition type.
+         * @param waitConditionType defines when waiting will stop
          */
-        virtual void wait() = 0;
+        virtual void wait(Loading::Listener& listener, WaitConditionType waitConditionType) = 0;
 
         /**
          * @brief findPath fills output iterator with points of scene surfaces to be used for actor to walk through.

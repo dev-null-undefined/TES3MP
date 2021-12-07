@@ -19,10 +19,10 @@ namespace MWPhysics
 {
 
 
-Actor::Actor(const MWWorld::Ptr& ptr, const Resource::BulletShape* shape, PhysicsTaskScheduler* scheduler)
-  : mStandingOnPtr(nullptr), mCanWaterWalk(false), mWalkingOnWater(false)
+Actor::Actor(const MWWorld::Ptr& ptr, const Resource::BulletShape* shape, PhysicsTaskScheduler* scheduler, bool canWaterWalk)
+  : mStandingOnPtr(nullptr), mCanWaterWalk(canWaterWalk), mWalkingOnWater(false)
   , mCollisionObject(nullptr), mMeshTranslation(shape->mCollisionBox.center), mHalfExtents(shape->mCollisionBox.extents)
-  , mStuckFrames(0), mLastStuckPosition{0, 0, 0}
+  , mVelocity(0,0,0), mStuckFrames(0), mLastStuckPosition{0, 0, 0}
   , mForce(0.f, 0.f, 0.f), mOnGround(true), mOnSlope(false)
   , mInternalCollisionMode(true)
   , mExternalCollisionMode(true)
@@ -117,32 +117,20 @@ int Actor::getCollisionMask() const
 void Actor::updatePosition()
 {
     std::scoped_lock lock(mPositionMutex);
-    updateWorldPosition();
-    mPreviousPosition = mWorldPosition;
-    mPosition = mWorldPosition;
-    mSimulationPosition = mWorldPosition;
+    const auto worldPosition = mPtr.getRefData().getPosition().asVec3();
+    mPreviousPosition = worldPosition;
+    mPosition = worldPosition;
+    mSimulationPosition = worldPosition;
     mPositionOffset = osg::Vec3f();
     mStandingOnPtr = nullptr;
+    mSkipCollisions = true;
     mSkipSimulation = true;
-}
-
-void Actor::updateWorldPosition()
-{
-    if (mWorldPosition != mPtr.getRefData().getPosition().asVec3())
-        mWorldPositionChanged = true;
-    mWorldPosition = mPtr.getRefData().getPosition().asVec3();
-}
-
-osg::Vec3f Actor::getWorldPosition() const
-{
-    return mWorldPosition;
 }
 
 void Actor::setSimulationPosition(const osg::Vec3f& position)
 {
-    if (!mSkipSimulation)
+    if (!std::exchange(mSkipSimulation, false))
         mSimulationPosition = position;
-    mSkipSimulation = false;
 }
 
 osg::Vec3f Actor::getSimulationPosition() const
@@ -159,38 +147,37 @@ void Actor::updateCollisionObjectPosition()
 {
     std::scoped_lock lock(mPositionMutex);
     mShape->setLocalScaling(Misc::Convert::toBullet(mScale));
-    osg::Vec3f scaledTranslation = mRotation * osg::componentMultiply(mMeshTranslation, mScale);
-    osg::Vec3f newPosition = scaledTranslation + mPosition;
-    mLocalTransform.setOrigin(Misc::Convert::toBullet(newPosition));
-    mLocalTransform.setRotation(Misc::Convert::toBullet(mRotation));
-    mCollisionObject->setWorldTransform(mLocalTransform);
+    osg::Vec3f newPosition = getScaledMeshTranslation() + mPosition;
+
+    auto& trans = mCollisionObject->getWorldTransform();
+    trans.setOrigin(Misc::Convert::toBullet(newPosition));
+    trans.setRotation(Misc::Convert::toBullet(mRotation));
+    mCollisionObject->setWorldTransform(trans);
+
     mWorldPositionChanged = false;
 }
 
 osg::Vec3f Actor::getCollisionObjectPosition() const
 {
     std::scoped_lock lock(mPositionMutex);
-    return Misc::Convert::toOsg(mLocalTransform.getOrigin());
+    return getScaledMeshTranslation() + mPosition;
 }
 
 bool Actor::setPosition(const osg::Vec3f& position)
 {
     std::scoped_lock lock(mPositionMutex);
-    // position is being forced, ignore simulation results until we sync up
-    if (mSkipSimulation)
-        return false;
-    bool hasChanged = mPosition != position || mPositionOffset.length() != 0 || mWorldPositionChanged;
-    updateWorldPosition();
     applyOffsetChange();
+    bool hasChanged = mPosition != position || mWorldPositionChanged;
     mPreviousPosition = mPosition;
     mPosition = position;
     return hasChanged;
 }
 
-void Actor::adjustPosition(const osg::Vec3f& offset)
+void Actor::adjustPosition(const osg::Vec3f& offset, bool ignoreCollisions)
 {
     std::scoped_lock lock(mPositionMutex);
     mPositionOffset += offset;
+    mSkipCollisions = mSkipCollisions || ignoreCollisions;
 }
 
 void Actor::applyOffsetChange()
@@ -300,6 +287,21 @@ void Actor::setStandingOnPtr(const MWWorld::Ptr& ptr)
 {
     std::scoped_lock lock(mPositionMutex);
     mStandingOnPtr = ptr;
+}
+
+bool Actor::skipCollisions()
+{
+    return std::exchange(mSkipCollisions, false);
+}
+
+void Actor::setVelocity(osg::Vec3f velocity)
+{
+    mVelocity = velocity;
+}
+
+osg::Vec3f Actor::velocity()
+{
+    return std::exchange(mVelocity, osg::Vec3f());
 }
 
 }

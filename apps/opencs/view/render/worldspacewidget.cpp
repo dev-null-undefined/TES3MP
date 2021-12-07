@@ -17,7 +17,6 @@
 #include "../../model/world/idtable.hpp"
 
 #include "../../model/prefs/shortcut.hpp"
-#include "../../model/prefs/shortcuteventhandler.hpp"
 #include "../../model/prefs/state.hpp"
 
 #include "../render/orbitcameramode.hpp"
@@ -453,6 +452,11 @@ CSVRender::WorldspaceHitResult CSVRender::WorldspaceWidget::mousePick (const QPo
     return hit;
 }
 
+CSVRender::EditMode *CSVRender::WorldspaceWidget::getEditMode()
+{
+    return dynamic_cast<CSVRender::EditMode *> (mEditMode->getCurrent());
+}
+
 void CSVRender::WorldspaceWidget::abortDrag()
 {
     if (mDragging)
@@ -696,11 +700,6 @@ void CSVRender::WorldspaceWidget::handleInteractionPress (const WorldspaceHitRes
         editMode.secondarySelectPressed (hit);
     else if (type == InteractionType_PrimaryOpen)
         editMode.primaryOpenPressed (hit);
-}
-
-CSVRender::EditMode *CSVRender::WorldspaceWidget::getEditMode()
-{
-    return dynamic_cast<CSVRender::EditMode *> (mEditMode->getCurrent());
 }
 
 void CSVRender::WorldspaceWidget::primaryOpen(bool activate)

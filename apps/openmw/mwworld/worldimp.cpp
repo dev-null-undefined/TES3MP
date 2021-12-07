@@ -1261,7 +1261,7 @@ namespace MWWorld
             if (movePhysics)
             {
                 if (const auto object = mPhysics->getObject(ptr))
-                    updateNavigatorObject(object);
+                    updateNavigatorObject(*object);
             }
         }
 
@@ -1291,12 +1291,12 @@ namespace MWWorld
         return moveObject(ptr, cell, x, y, z, movePhysics);
     }
 
-    MWWorld::Ptr World::moveObjectBy(const Ptr& ptr, osg::Vec3f vec, bool moveToActive)
+    MWWorld::Ptr World::moveObjectBy(const Ptr& ptr, osg::Vec3f vec, bool moveToActive, bool ignoreCollisions)
     {
         auto* actor = mPhysics->getActor(ptr);
         osg::Vec3f newpos = ptr.getRefData().getPosition().asVec3() + vec;
         if (actor)
-            actor->adjustPosition(vec);
+            actor->adjustPosition(vec, ignoreCollisions);
         if (ptr.getClass().isActor())
             return moveObject(ptr, newpos.x(), newpos.y(), newpos.z(), false, moveToActive && ptr != getPlayerPtr());
         return moveObject(ptr, newpos.x(), newpos.y(), newpos.z());
@@ -1320,7 +1320,7 @@ namespace MWWorld
         if (mPhysics->getActor(ptr))
             mNavigator->addAgent(getPathfindingHalfExtents(ptr));
         else if (const auto object = mPhysics->getObject(ptr))
-            mShouldUpdateNavigator = updateNavigatorObject(object) || mShouldUpdateNavigator;
+            updateNavigatorObject(*object);
     }
 
     void World::rotateObjectImp(const Ptr& ptr, const osg::Vec3f& rot, MWBase::RotationFlags flags)
@@ -1369,7 +1369,7 @@ namespace MWWorld
             mWorldScene->updateObjectRotation(ptr, order);
 
             if (const auto object = mPhysics->getObject(ptr))
-                updateNavigatorObject(object);
+                updateNavigatorObject(*object);
         }
     }
 
@@ -1461,7 +1461,7 @@ namespace MWWorld
             mPhysics->updateRotation(ptr);
 
             if (const auto object = mPhysics->getObject(ptr))
-                updateNavigatorObject(object);
+                updateNavigatorObject(*object);
         }
     }
 
@@ -1581,14 +1581,11 @@ namespace MWWorld
 
     void World::updateNavigator()
     {
-        mPhysics->forEachAnimatedObject([&] (const MWPhysics::Object* object)
-        {
-            mShouldUpdateNavigator = updateNavigatorObject(object) || mShouldUpdateNavigator;
-        });
+        mPhysics->forEachAnimatedObject([&] (const MWPhysics::Object* object) { updateNavigatorObject(*object); });
 
         for (const auto& door : mDoorStates)
             if (const auto object = mPhysics->getObject(door.first))
-                mShouldUpdateNavigator = updateNavigatorObject(object) || mShouldUpdateNavigator;
+                updateNavigatorObject(*object);
 
         if (mShouldUpdateNavigator)
         {
@@ -1597,13 +1594,11 @@ namespace MWWorld
         }
     }
 
-    bool World::updateNavigatorObject(const MWPhysics::Object* object)
+    void World::updateNavigatorObject(const MWPhysics::Object& object)
     {
-        const DetourNavigator::ObjectShapes shapes {
-            *object->getShapeInstance()->getCollisionShape(),
-            object->getShapeInstance()->getAvoidCollisionShape()
-        };
-        return mNavigator->updateObject(DetourNavigator::ObjectId(object), shapes, object->getTransform());
+        const DetourNavigator::ObjectShapes shapes(object.getShapeInstance());
+        mShouldUpdateNavigator = mNavigator->updateObject(DetourNavigator::ObjectId(&object), shapes, object.getTransform())
+            || mShouldUpdateNavigator;
     }
 
     const MWPhysics::RayCastingInterface* World::getRayCasting() const
@@ -2361,7 +2356,7 @@ namespace MWWorld
             return false;
 
         const bool isPlayer = ptr == getPlayerConstPtr();
-        if (!(isPlayer && mGodMode) && stats.isParalyzed())
+        if (!(isPlayer && mGodMode) && stats.getMagicEffects().get(ESM::MagicEffect::Paralyze).getModifier() > 0)
             return false;
 
         if (ptr.getClass().canFly(ptr))
@@ -2589,7 +2584,14 @@ namespace MWWorld
 
     MWRender::Animation* World::getAnimation(const MWWorld::Ptr &ptr)
     {
-        return mRendering->getAnimation(ptr);
+        auto* animation = mRendering->getAnimation(ptr);
+        if(!animation) {
+            mWorldScene->removeFromPagedRefs(ptr);
+            animation = mRendering->getAnimation(ptr);
+            if(animation)
+                mRendering->pagingBlacklistObject(mStore.find(ptr.getCellRef().getRefId()), ptr);
+        }
+        return animation;
     }
 
     const MWRender::Animation* World::getAnimation(const MWWorld::ConstPtr &ptr) const
@@ -3218,6 +3220,7 @@ namespace MWWorld
         bool underwater = MWBase::Environment::get().getWorld()->isUnderwater(MWMechanics::getPlayer().getCell(), worldPos);
         if (underwater)
         {
+            MWMechanics::projectileHit(actor, Ptr(), bow, projectile, worldPos, attackStrength);
             mRendering->emitWaterRipple(worldPos);
             return;
         }

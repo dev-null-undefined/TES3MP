@@ -346,7 +346,7 @@ namespace MWMechanics
 
                         bool runFallback = true;
 
-                        if (pathgrid && !actor.getClass().isPureWaterCreature(actor))
+                        if (pathgrid != nullptr && !pathgrid->mPoints.empty() && !actor.getClass().isPureWaterCreature(actor))
                         {
                             ESM::Pathgrid::PointList points;
                             Misc::CoordinateConverter coords(storage.mCell->getCell());
@@ -715,16 +715,18 @@ osg::Vec3f AimDirToMovingTarget(const MWWorld::Ptr& actor, const MWWorld::Ptr& t
     float t_collision;
 
     float projVelDirSquared = projSpeed * projSpeed - velPerp * velPerp;
-
-    osg::Vec3f vTargetMoveDirNormalized = vTargetMoveDir;
-    vTargetMoveDirNormalized.normalize();
-
-    float projDistDiff = vDirToTarget * vTargetMoveDirNormalized; // dot product
-    projDistDiff = std::sqrt(distToTarget * distToTarget - projDistDiff * projDistDiff);
-
     if (projVelDirSquared > 0)
+    {
+        osg::Vec3f vTargetMoveDirNormalized = vTargetMoveDir;
+        vTargetMoveDirNormalized.normalize();
+
+        float projDistDiff = vDirToTarget * vTargetMoveDirNormalized; // dot product
+        projDistDiff = std::sqrt(distToTarget * distToTarget - projDistDiff * projDistDiff);
+
         t_collision = projDistDiff / (std::sqrt(projVelDirSquared) - velDir);
-    else t_collision = 0; // speed of projectile is not enough to reach moving target
+    }
+    else
+        t_collision = 0; // speed of projectile is not enough to reach moving target
 
     return vDirToTarget + vTargetMoveDir * t_collision;
 }

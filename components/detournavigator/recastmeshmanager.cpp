@@ -1,37 +1,38 @@
 #include "recastmeshmanager.hpp"
-
-#include <BulletCollision/CollisionShapes/btHeightfieldTerrainShape.h>
+#include "recastmeshbuilder.hpp"
 
 namespace DetourNavigator
 {
     RecastMeshManager::RecastMeshManager(const Settings& settings, const TileBounds& bounds, std::size_t generation)
-        : mGeneration(generation)
-        , mMeshBuilder(settings, bounds)
+        : mSettings(settings)
+        , mGeneration(generation)
+        , mTileBounds(bounds)
     {
     }
 
-    bool RecastMeshManager::addObject(const ObjectId id, const btCollisionShape& shape, const btTransform& transform,
+    bool RecastMeshManager::addObject(const ObjectId id, const CollisionShape& shape, const btTransform& transform,
                                       const AreaType areaType)
     {
+        const std::lock_guard lock(mMutex);
+        const auto object = mObjects.lower_bound(id);
+        if (object != mObjects.end() && object->first == id)
+            return false;
         const auto iterator = mObjectsOrder.emplace(mObjectsOrder.end(),
             OscillatingRecastMeshObject(RecastMeshObject(shape, transform, areaType), mRevision + 1));
-        if (!mObjects.emplace(id, iterator).second)
-        {
-            mObjectsOrder.erase(iterator);
-            return false;
-        }
+        mObjects.emplace_hint(object, id, iterator);
         ++mRevision;
         return true;
     }
 
     bool RecastMeshManager::updateObject(const ObjectId id, const btTransform& transform, const AreaType areaType)
     {
+        const std::lock_guard lock(mMutex);
         const auto object = mObjects.find(id);
         if (object == mObjects.end())
             return false;
         const std::size_t lastChangeRevision = mLastNavMeshReportedChange.has_value()
                 ? mLastNavMeshReportedChange->mRevision : mRevision;
-        if (!object->second->update(transform, areaType, lastChangeRevision))
+        if (!object->second->update(transform, areaType, lastChangeRevision, mTileBounds))
             return false;
         ++mRevision;
         return true;
@@ -39,6 +40,7 @@ namespace DetourNavigator
 
     std::optional<RemovedRecastMeshObject> RecastMeshManager::removeObject(const ObjectId id)
     {
+        const std::lock_guard lock(mMutex);
         const auto object = mObjects.find(id);
         if (object == mObjects.end())
             return std::nullopt;
@@ -52,6 +54,7 @@ namespace DetourNavigator
     bool RecastMeshManager::addWater(const osg::Vec2i& cellPosition, const int cellSize,
         const btTransform& transform)
     {
+        const std::lock_guard lock(mMutex);
         const auto iterator = mWaterOrder.emplace(mWaterOrder.end(), Water {cellSize, transform});
         if (!mWater.emplace(cellPosition, iterator).second)
         {
@@ -64,6 +67,7 @@ namespace DetourNavigator
 
     std::optional<RecastMeshManager::Water> RecastMeshManager::removeWater(const osg::Vec2i& cellPosition)
     {
+        const std::lock_guard lock(mMutex);
         const auto water = mWater.find(cellPosition);
         if (water == mWater.end())
             return std::nullopt;
@@ -76,12 +80,35 @@ namespace DetourNavigator
 
     std::shared_ptr<RecastMesh> RecastMeshManager::getMesh()
     {
-        rebuild();
-        return mMeshBuilder.create(mGeneration, mRevision);
+        RecastMeshBuilder builder(mSettings, mTileBounds);
+        using Object = std::tuple<
+            osg::ref_ptr<const osg::Object>,
+            std::reference_wrapper<const btCollisionShape>,
+            btTransform,
+            AreaType
+        >;
+        std::vector<Object> objects;
+        std::size_t revision;
+        {
+            const std::lock_guard lock(mMutex);
+            for (const auto& v : mWaterOrder)
+                builder.addWater(v.mCellSize, v.mTransform);
+            objects.reserve(mObjectsOrder.size());
+            for (const auto& object : mObjectsOrder)
+            {
+                const RecastMeshObject& impl = object.getImpl();
+                objects.emplace_back(impl.getHolder(), impl.getShape(), impl.getTransform(), impl.getAreaType());
+            }
+            revision = mRevision;
+        }
+        for (const auto& [holder, shape, transform, areaType] : objects)
+            builder.addObject(shape, transform, areaType);
+        return std::move(builder).create(mGeneration, revision);
     }
 
     bool RecastMeshManager::isEmpty() const
     {
+        const std::lock_guard lock(mMutex);
         return mObjects.empty();
     }
 
@@ -89,6 +116,7 @@ namespace DetourNavigator
     {
         if (recastMeshVersion.mGeneration != mGeneration)
             return;
+        const std::lock_guard lock(mMutex);
         if (mLastNavMeshReport.has_value() && navMeshVersion < mLastNavMeshReport->mNavMeshVersion)
             return;
         mLastNavMeshReport = {recastMeshVersion.mRevision, navMeshVersion};
@@ -97,15 +125,9 @@ namespace DetourNavigator
             mLastNavMeshReportedChange = mLastNavMeshReport;
     }
 
-    void RecastMeshManager::rebuild()
+    Version RecastMeshManager::getVersion() const
     {
-        mMeshBuilder.reset();
-        for (const auto& v : mWaterOrder)
-            mMeshBuilder.addWater(v.mCellSize, v.mTransform);
-        for (const auto& object : mObjectsOrder)
-        {
-            const RecastMeshObject& v = object.getImpl();
-            mMeshBuilder.addObject(v.getShape(), v.getTransform(), v.getAreaType());
-        }
+        const std::lock_guard lock(mMutex);
+        return Version {mGeneration, mRevision};
     }
 }

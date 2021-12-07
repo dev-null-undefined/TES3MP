@@ -11,7 +11,6 @@
 #include "../mwbase/world.hpp"
 #include "../mwbase/environment.hpp"
 #include "../mwbase/mechanicsmanager.hpp"
-#include "../mwbase/dialoguemanager.hpp"
 
 #include "../mwworld/class.hpp"
 #include "../mwworld/esmstore.hpp"
@@ -210,14 +209,17 @@ namespace MWMechanics
                 storage.setState(AiWanderStorage::Wander_Walking);
         }
 
-        GreetingState greetingState = MWBase::Environment::get().getMechanicsManager()->getGreetingState(actor);
-        if (greetingState == Greet_InProgress)
+        if(!cStats.getMovementFlag(CreatureStats::Flag_ForceJump) && !cStats.getMovementFlag(CreatureStats::Flag_ForceSneak))
         {
-            if (storage.mState == AiWanderStorage::Wander_Walking)
+            GreetingState greetingState = MWBase::Environment::get().getMechanicsManager()->getGreetingState(actor);
+            if (greetingState == Greet_InProgress)
             {
-                stopMovement(actor);
-                mObstacleCheck.clear();
-                storage.setState(AiWanderStorage::Wander_IdleNow);
+                if (storage.mState == AiWanderStorage::Wander_Walking)
+                {
+                    stopMovement(actor);
+                    mObstacleCheck.clear();
+                    storage.setState(AiWanderStorage::Wander_IdleNow);
+                }
             }
         }
 
@@ -751,6 +753,9 @@ namespace MWMechanics
     {
         const ESM::Pathgrid *pathgrid =
             MWBase::Environment::get().getWorld()->getStore().get<ESM::Pathgrid>().search(*currentCell->getCell());
+
+        if (pathgrid == nullptr || pathgrid->mPoints.empty())
+            return;
 
         int index = PathFinder::getClosestPoint(pathgrid, PathFinder::makeOsgVec3(dest));
 

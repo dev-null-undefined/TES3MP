@@ -78,7 +78,7 @@ namespace MWPhysics
 
     struct ActorFrameData
     {
-        ActorFrameData(const std::shared_ptr<Actor>& actor, const MWWorld::Ptr standingOn, bool moveToWaterSurface, osg::Vec3f movement, float slowFall, float waterlevel);
+        ActorFrameData(const std::shared_ptr<Actor>& actor, const MWWorld::Ptr standingOn, bool moveToWaterSurface, float slowFall, float waterlevel);
         void  updatePosition(btCollisionWorld* world);
         std::weak_ptr<Actor> mActor;
         Actor* mActorRaw;
@@ -91,6 +91,7 @@ namespace MWPhysics
         bool mFloatToSurface;
         bool mNeedLand;
         bool mWaterCollision;
+        bool mSkipCollisionDetection;
         float mWaterlevel;
         float mSlowFall;
         float mOldHeight;
@@ -124,7 +125,7 @@ namespace MWPhysics
             void addObject (const MWWorld::Ptr& ptr, const std::string& mesh, int collisionType = CollisionType_World);
             void addActor (const MWWorld::Ptr& ptr, const std::string& mesh);
 
-            int addProjectile(const MWWorld::Ptr& caster, const osg::Vec3f& position, const std::string& mesh, bool computeRadius, bool canTraverseWater);
+            int addProjectile(const MWWorld::Ptr& caster, const osg::Vec3f& position, const std::string& mesh, bool computeRadius);
             void setCaster(int projectileId, const MWWorld::Ptr& caster);
             void updateProjectile(const int projectileId, const osg::Vec3f &position) const;
             void removeProjectile(const int projectileId);
@@ -275,13 +276,10 @@ namespace MWPhysics
             using ProjectileMap = std::map<int, std::shared_ptr<Projectile>>;
             ProjectileMap mProjectiles;
 
-            using HeightFieldMap = std::map<std::pair<int, int>, std::unique_ptr<HeightField>>;
+            using HeightFieldMap = std::map<std::pair<int, int>, osg::ref_ptr<HeightField>>;
             HeightFieldMap mHeightFields;
 
             bool mDebugDrawEnabled;
-
-            using PtrVelocityList = std::vector<std::pair<MWWorld::Ptr, osg::Vec3f>>;
-            PtrVelocityList mMovementQueue;
 
             float mTimeAccum;
 
