@@ -233,7 +233,7 @@ bool Launcher::AdvancedPage::loadSettings()
 
     // VR
     {
-        std::string stereoMethod = mEngineSettings.getString("stereo method", "Stereo");
+        std::string stereoMethod = Settings::Manager::getString("stereo method", "Stereo");
         useGeometryShaders->setChecked(stereoMethod == "GeometryShader");
 
         loadSettingBool(useSharedShadowMaps, "shared shadow maps", "Stereo");
@@ -243,11 +243,11 @@ bool Launcher::AdvancedPage::loadSettings()
         loadSettingBool(logAllXrCalls, "log all openxr calls", "VR Debug");
         loadSettingBool(ignoreXrErrors, "continue on errors", "VR Debug");
 
-        double minimumSwingSpeed = mEngineSettings.getFloat("realistic combat minimum swing velocity", "VR");
+        double minimumSwingSpeed = Settings::Manager::getDouble("realistic combat minimum swing velocity", "VR");
         realisticCombatMinimumSwingSpeedSpinBox->setValue(minimumSwingSpeed);
-        double maximumSwingSpeed = mEngineSettings.getFloat("realistic combat maximum swing velocity", "VR");
+        double maximumSwingSpeed = Settings::Manager::getDouble("realistic combat maximum swing velocity", "VR");
         realisticCombatMaximumSwingSpeedSpinBox->setValue(maximumSwingSpeed);
-        double realHeightValue = mEngineSettings.getFloat("real height", "VR");
+        double realHeightValue = Settings::Manager::getDouble("real height", "VR");
         realHeightSpinBox->setValue(realHeightValue);
     }
     return true;
@@ -421,8 +421,8 @@ void Launcher::AdvancedPage::saveSettings()
         std::string stereoMethod = "BruteForce";
         if (useGeometryShaders->isChecked())
             stereoMethod = "GeometryShader";
-        if (stereoMethod != mEngineSettings.getString("stereo method", "Stereo"))
-            mEngineSettings.setString("stereo method", "Stereo", stereoMethod);
+        if (stereoMethod != Settings::Manager::getString("stereo method", "Stereo"))
+            Settings::Manager::setString("stereo method", "Stereo", stereoMethod);
 
         saveSettingBool(useSharedShadowMaps, "shared shadow maps", "Stereo");
         saveSettingBool(preferDirectXSwapchains, "Prefer sRGB swapchains", "VR");
@@ -432,16 +432,16 @@ void Launcher::AdvancedPage::saveSettings()
         saveSettingBool(ignoreXrErrors, "continue on errors", "VR Debug");
 
         double minimumSwingSpeed = realisticCombatMinimumSwingSpeedSpinBox->value();
-        if (minimumSwingSpeed != mEngineSettings.getFloat("realistic combat minimum swing velocity", "VR"))
-            mEngineSettings.setFloat("realistic combat minimum swing velocity", "VR", minimumSwingSpeed);
+        if (minimumSwingSpeed != Settings::Manager::getFloat("realistic combat minimum swing velocity", "VR"))
+            Settings::Manager::setFloat("realistic combat minimum swing velocity", "VR", minimumSwingSpeed);
 
         double maximumSwingSpeed = realisticCombatMaximumSwingSpeedSpinBox->value();
-        if (maximumSwingSpeed != mEngineSettings.getFloat("realistic combat maximum swing velocity", "VR"))
-            mEngineSettings.setFloat("realistic combat maximum swing velocity", "VR", maximumSwingSpeed);
+        if (maximumSwingSpeed != Settings::Manager::getFloat("realistic combat maximum swing velocity", "VR"))
+            Settings::Manager::setFloat("realistic combat maximum swing velocity", "VR", maximumSwingSpeed);
 
         double realHeightValue = realHeightSpinBox->value();
-        if (realHeightValue != mEngineSettings.getFloat("real height", "VR"))
-            mEngineSettings.setFloat("real height", "VR", realHeightValue);
+        if (realHeightValue != Settings::Manager::getFloat("real height", "VR"))
+            Settings::Manager::setFloat("real height", "VR", realHeightValue);
     }
 }
 
