@@ -328,7 +328,7 @@ endif()
 if(BUILD_OPENMW_VR)
 # Use of FetchContent to include the OpenXR SDK requires CMake 3.11
     if(${CMAKE_VERSION} VERSION_LESS "3.11") 
-        message(FATAL_ERROR "Building openmw_vr requires CMake version 3.11 or later.")
+        message(FATAL_ERROR "Building tes3mp_vr requires CMake version 3.11 or later.")
     endif()
 
 # TODO: Openmw and openmw_vr should preferrably share game code as a static or shared library
@@ -343,7 +343,7 @@ if(BUILD_OPENMW_VR)
          vranimation vrcamera vrenvironment vrframebuffer vrgui vrinputmanager vrinput vrlistbox vrmetamenu vrpointer vrsession vrtracking vrtypes vrutil vrviewer vrvirtualkeyboard
         )
 
-    openmw_add_executable(openmw_vr
+    openmw_add_executable(tes3mp_vr
         ${OPENMW_FILES}
         ${OPENMW_VR_FILES}
         ${GAME} ${GAME_HEADER}
@@ -364,25 +364,25 @@ if(BUILD_OPENMW_VR)
     )
     FetchContent_MakeAvailable(OpenXR)
 
-    target_link_libraries(openmw_vr openxr_loader)
+    target_link_libraries(tes3mp_vr openxr_loader)
 
     # Preprocessor variable used to control code paths to vr code
     if (WIN32)
-        target_compile_options(openmw_vr PUBLIC -DUSE_OPENXR -DXR_USE_GRAPHICS_API_OPENGL -DXR_USE_GRAPHICS_API_D3D11 -DXR_USE_PLATFORM_WIN32)
+        target_compile_options(tes3mp_vr PUBLIC -DUSE_OPENXR -DXR_USE_GRAPHICS_API_OPENGL -DXR_USE_GRAPHICS_API_D3D11 -DXR_USE_PLATFORM_WIN32)
     elseif(UNIX)
-        target_compile_options(openmw_vr PUBLIC -DUSE_OPENXR -DXR_USE_GRAPHICS_API_OPENGL -DXR_USE_PLATFORM_XLIB)
+        target_compile_options(tes3mp_vr PUBLIC -DUSE_OPENXR -DXR_USE_GRAPHICS_API_OPENGL -DXR_USE_PLATFORM_XLIB)
         find_package(X11 REQUIRED)
-        target_link_libraries(openmw_vr ${X11_LIBRARIES})
+        target_link_libraries(tes3mp_vr ${X11_LIBRARIES})
     endif()
-    target_link_libraries(openmw_vr ${OPENMW_LINK_TARGETS})
+    target_link_libraries(tes3mp_vr ${OPENMW_LINK_TARGETS})
     if(APPLE)
-        add_custom_command(TARGET openmw_vr
+        add_custom_command(TARGET tes3mp_vr
             POST_BUILD
             COMMAND cp "${OpenMW_BINARY_DIR}/resources/version" "${BUNDLE_RESOURCES_DIR}/resources")
     endif(APPLE)
 
     if (WIN32)
-        INSTALL(TARGETS openmw_vr RUNTIME DESTINATION ".")
+        INSTALL(TARGETS tes3mp_vr RUNTIME DESTINATION ".")
     endif (WIN32)
 endif()
 

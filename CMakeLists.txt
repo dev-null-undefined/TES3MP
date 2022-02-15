@@ -720,19 +720,19 @@ if (WIN32)
 
     # TODO: properties and link targets should be copied from openmw to openmw_vr instead of duplicating every line
     if (USE_DEBUG_CONSOLE AND BUILD_OPENMW_VR)
-      set_target_properties(openmw_vr PROPERTIES LINK_FLAGS_DEBUG "/SUBSYSTEM:CONSOLE")
-      set_target_properties(openmw_vr PROPERTIES LINK_FLAGS_RELWITHDEBINFO "/SUBSYSTEM:CONSOLE")
-      set_target_properties(openmw_vr PROPERTIES COMPILE_DEFINITIONS $<$<CONFIG:Debug>:_CONSOLE>)
+      set_target_properties(tes3mp_vr PROPERTIES LINK_FLAGS_DEBUG "/SUBSYSTEM:CONSOLE")
+      set_target_properties(tes3mp_vr PROPERTIES LINK_FLAGS_RELWITHDEBINFO "/SUBSYSTEM:CONSOLE")
+      set_target_properties(tes3mp_vr PROPERTIES COMPILE_DEFINITIONS $<$<CONFIG:Debug>:_CONSOLE>)
     elseif (BUILD_OPENMW_VR)
       # Turn off debug console, debug output will be written to visual studio output instead
-      set_target_properties(openmw_vr PROPERTIES LINK_FLAGS_DEBUG "/SUBSYSTEM:WINDOWS")
-      set_target_properties(openmw_vr PROPERTIES LINK_FLAGS_RELWITHDEBINFO "/SUBSYSTEM:WINDOWS")
+      set_target_properties(tes3mp_vr PROPERTIES LINK_FLAGS_DEBUG "/SUBSYSTEM:WINDOWS")
+      set_target_properties(tes3mp_vr PROPERTIES LINK_FLAGS_RELWITHDEBINFO "/SUBSYSTEM:WINDOWS")
     endif()
 
     if (BUILD_OPENMW_VR)
         # Release builds don't use the debug console
-        set_target_properties(openmw_vr PROPERTIES LINK_FLAGS_RELEASE "/SUBSYSTEM:WINDOWS")
-        set_target_properties(openmw_vr PROPERTIES LINK_FLAGS_MINSIZEREL "/SUBSYSTEM:WINDOWS")
+        set_target_properties(tes3mp_vr PROPERTIES LINK_FLAGS_RELEASE "/SUBSYSTEM:WINDOWS")
+        set_target_properties(tes3mp_vr PROPERTIES LINK_FLAGS_MINSIZEREL "/SUBSYSTEM:WINDOWS")
     endif()
 
     # Play a bit with the warning levels
@@ -809,9 +809,9 @@ if (WIN32)
 
     if (BUILD_OPENMW_VR)
         if (OPENMW_UNITY_BUILD)
-            set_target_properties(openmw_vr PROPERTIES COMPILE_FLAGS "${WARNINGS} ${MT_BUILD} /bigobj")
+            set_target_properties(tes3mp_vr PROPERTIES COMPILE_FLAGS "${WARNINGS} ${MT_BUILD} /bigobj")
         else()
-            set_target_properties(openmw_vr PROPERTIES COMPILE_FLAGS "${WARNINGS} ${MT_BUILD}")
+            set_target_properties(tes3mp_vr PROPERTIES COMPILE_FLAGS "${WARNINGS} ${MT_BUILD}")
         endif()
     endif()
 
