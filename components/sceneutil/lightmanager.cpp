@@ -1335,7 +1335,10 @@ namespace SceneUtil
             transformBoundingSphere(mat, nodeBound);
 
             mLightList.clear();
-            for (size_t i = 0; i < lights.size(); ++i)
+            for (size_t i=0; i<lights.size(); ++i)
+            mLightListCropped.clear();
+
+            for (unsigned int i=0; i<lights.size(); ++i)
             {
                 const LightManager::LightSourceViewBound& l = lights[i];
 
@@ -1352,38 +1355,39 @@ namespace SceneUtil
 
             osg::StateSet* stateset = nullptr;
 
-            if (mLightList.size() > maxLights)
+            if (mLightListCropped.empty())
             {
-                // remove lights culled by this camera
-                LightManager::LightList lightList = mLightList;
-                for (auto it = lightList.begin(); it != lightList.end() && lightList.size() > maxLights;)
+                mLightListCropped = mLightList;
+                if (mLightList.size() > maxLights)
                 {
-                    osg::CullStack::CullingStack& stack = cv->getModelViewCullingStack();
-
-                    osg::BoundingSphere bs = (*it)->mViewBound;
-                    bs._radius = bs._radius * 2.0;
-                    osg::CullingSet& cullingSet = stack.front();
-                    if (cullingSet.isCulled(bs))
+                    // remove lights culled by this camera
+                    for (auto it = mLightListCropped.begin(); it != mLightListCropped.end() && mLightListCropped.size() > maxLights; )
                     {
-                        it = lightList.erase(it);
-                        continue;
+                        osg::CullStack::CullingStack& stack = cv->getModelViewCullingStack();
+
+                        osg::BoundingSphere bs = (*it)->mViewBound;
+                        bs._radius = bs._radius * 2.0;
+                        osg::CullingSet& cullingSet = stack.front();
+                        if (cullingSet.isCulled(bs))
+                        {
+                            it = mLightListCropped.erase(it);
+                            continue;
+                        }
+                        else
+                            ++it;
                     }
-                    else
-                        ++it;
-                }
 
-                if (lightList.size() > maxLights)
-                {
-                    // sort by proximity to camera, then get rid of furthest away lights
-                    std::sort(lightList.begin(), lightList.end(), sortLights);
-                    while (lightList.size() > maxLights)
-                        lightList.pop_back();
+                    if (mLightListCropped.size() > maxLights)
+                    {
+                        // sort by proximity to camera, then get rid of furthest away lights
+                        std::sort(mLightListCropped.begin(), mLightListCropped.end(), sortLights);
+                        while (mLightListCropped.size() > maxLights)
+                            mLightListCropped.pop_back();
+                    }
                 }
-                stateset = mLightManager->getLightListStateSet(lightList, cv->getTraversalNumber(), cv->getCurrentRenderStage()->getInitialViewMatrix());
             }
-            else
-                stateset = mLightManager->getLightListStateSet(mLightList, cv->getTraversalNumber(), cv->getCurrentRenderStage()->getInitialViewMatrix());
 
+            stateset = mLightManager->getLightListStateSet(mLightListCropped, cv->getTraversalNumber(), cv->getCurrentRenderStage()->getInitialViewMatrix());
 
             cv->pushStateSet(stateset);
             return true;

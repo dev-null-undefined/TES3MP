@@ -16,6 +16,8 @@
     End of tes3mp addition
 */
 
+#include <components/debug/debuglog.hpp>
+
 #include "../mwbase/environment.hpp"
 #include "../mwbase/inputmanager.hpp"
 #include "../mwbase/windowmanager.hpp"
@@ -58,6 +60,12 @@ namespace MWInput
         {
         }
     };
+
+    ICS::InputControlSystem&
+        BindingsManager::ics()
+    {
+        return *mInputBinder;
+    }
 
     class BindingsListener :
             public ICS::ChannelListener,

@@ -14,6 +14,7 @@ namespace osg
     class Camera;
     class NodeCallback;
     class Node;
+    class Quat;
 }
 
 namespace MWRender
@@ -26,7 +27,7 @@ namespace MWRender
     public:
         enum class Mode { Normal, Vanity, Preview, StandingPreview };
 
-    private:
+    protected:
         MWWorld::Ptr mTrackingPtr;
         osg::ref_ptr<const osg::Node> mTrackingNode;
         float mHeightScale;
@@ -92,7 +93,7 @@ namespace MWRender
 
     public:
         Camera(osg::Camera* camera);
-        ~Camera();
+        virtual ~Camera();
 
         /// Attach camera to object
         void attachTo(const MWWorld::Ptr &ptr) { mTrackingPtr = ptr; }
@@ -100,20 +101,23 @@ namespace MWRender
 
         void setFocalPointTransitionSpeed(float v) { mFocalPointTransitionSpeedCoef = v; }
         void setFocalPointTargetOffset(osg::Vec2d v);
-        void instantTransition();
+        virtual void instantTransition();
         void enableDynamicCameraDistance(bool v) { mDynamicCameraDistanceEnabled = v; }
         void enableCrosshairInThirdPersonMode(bool v) { mShowCrosshairInThirdPersonMode = v; }
 
         /// Update the view matrix of \a cam
-        void updateCamera(osg::Camera* cam);
+        virtual void updateCamera(osg::Camera* cam);
+
+        /// Update the view matrix of the current camera
+        virtual void updateCamera();
 
         /// Reset to defaults
-        void reset();
+        virtual void reset();
 
         /// Set where the camera is looking at. Uses Morrowind (euler) angles
         /// \param rot Rotation angles in radians
-        void rotateCamera(float pitch, float yaw, bool adjust);
-        void rotateCameraToTrackingPtr();
+        virtual void rotateCamera(float pitch, float roll, float yaw, bool adjust);
+        virtual void rotateCameraToTrackingPtr();
 
         float getYaw() const { return mYaw; }
         void setYaw(float angle);
@@ -122,10 +126,10 @@ namespace MWRender
         void setPitch(float angle);
 
         /// @param Force view mode switch, even if currently not allowed by the animation.
-        void toggleViewMode(bool force=false);
+        virtual void toggleViewMode(bool force=false);
 
-        bool toggleVanityMode(bool enable);
-        void allowVanityMode(bool allow);
+        virtual bool toggleVanityMode(bool enable);
+        virtual void allowVanityMode(bool allow);
 
         /// @note this may be ignored if an important animation is currently playing
         void togglePreviewMode(bool enable);
@@ -138,7 +142,7 @@ namespace MWRender
 
         bool isFirstPerson() const { return mFirstPersonView && mMode == Mode::Normal; }
 
-        void processViewChange();
+        virtual void processViewChange();
 
         void update(float duration, bool paused=false);
 
@@ -149,11 +153,16 @@ namespace MWRender
 
         void setAnimation(NpcAnimation *anim);
 
+        osg::Camera* getOsgCamera();
+
         osg::Vec3d getFocalPoint() const;
         osg::Vec3d getFocalPointOffset() const;
 
         /// Stores focal and camera world positions in passed arguments
-        void getPosition(osg::Vec3d &focal, osg::Vec3d &camera) const;
+        virtual void getPosition(osg::Vec3d &focal, osg::Vec3d &camera) const;
+
+        /// Store camera orientation in passed arguments
+        virtual void getOrientation(osg::Quat& orientation) const;
 
         bool isVanityOrPreviewModeEnabled() const { return mMode != Mode::Normal; }
         Mode getMode() const { return mMode; }

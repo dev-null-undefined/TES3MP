@@ -54,7 +54,7 @@ namespace MWWorld
 namespace MWGui
 {
     class Layout;
-
+    class DragAndDrop;
     class Console;
     class SpellWindow;
     class TradeWindow;
@@ -106,6 +106,7 @@ namespace MWBase
             /// @note This method will block until the video finishes playing
             /// (and will continually update the window while doing so)
             virtual void playVideo(const std::string& name, bool allowSkipping) = 0;
+            virtual bool isPlayingVideo(void) const = 0;
 
             virtual void setNewGame(bool newgame) = 0;
 
@@ -289,6 +290,7 @@ namespace MWBase
             virtual void showCrosshair(bool show) = 0;
             virtual bool getSubtitlesEnabled() = 0;
             virtual bool toggleHud() = 0;
+            virtual MWGui::DragAndDrop& getDragAndDrop(void) = 0;
 
             virtual void disallowMouse() = 0;
             virtual void allowMouse() = 0;
@@ -444,6 +446,8 @@ namespace MWBase
 
             virtual void watchActor(const MWWorld::Ptr& ptr) = 0;
             virtual MWWorld::Ptr getWatchedActor() const = 0;
+
+            virtual void viewerTraversals(bool updateWindowManager) = 0;
     };
 }
 

@@ -31,6 +31,7 @@
 #include "../mwmechanics/difficultyscaling.hpp"
 
 #include "../mwbase/environment.hpp"
+#include "../mwbase/inputmanager.hpp"
 #include "../mwbase/mechanicsmanager.hpp"
 #include "../mwbase/windowmanager.hpp"
 #include "../mwbase/world.hpp"
@@ -237,7 +238,7 @@ namespace MWClass
     }
 
 
-    void Creature::hit(const MWWorld::Ptr& ptr, float attackStrength, int type) const
+    bool Creature::hit(const MWWorld::Ptr& ptr, float attackStrength, int type, bool) const
     {
         /*
             Start of tes3mp addition
@@ -246,7 +247,7 @@ namespace MWClass
         */
         if (mwmp::PlayerList::isDedicatedPlayer(ptr) || mwmp::Main::get().getCellController()->isDedicatedActor(ptr))
         {
-            return;
+            return false;
         }
         /*
             End of tes3mp addition
@@ -258,7 +259,7 @@ namespace MWClass
         MWMechanics::CreatureStats &stats = getCreatureStats(ptr);
 
         if (stats.getDrawState() != MWMechanics::DrawState_Weapon)
-            return;
+            return false;
 
         // Get the weapon used (if hand-to-hand, weapon = inv.end())
         MWWorld::Ptr weapon;
@@ -282,7 +283,7 @@ namespace MWClass
 
         std::pair<MWWorld::Ptr, osg::Vec3f> result = MWBase::Environment::get().getWorld()->getHitContact(ptr, dist, targetActors);
         if (result.first.isEmpty())
-            return; // Didn't hit anything
+            return false; // Didn't hit anything
 
         MWWorld::Ptr victim = result.first;
 
@@ -299,6 +300,7 @@ namespace MWClass
             objectList->packetOrigin = mwmp::CLIENT_GAMEPLAY;
             objectList->addObjectHit(victim, ptr);
             objectList->sendObjectHit();
+            return false;
         }
         /*
             End of tes3mp change (major)
@@ -355,7 +357,7 @@ namespace MWClass
 
             victim.getClass().onHit(victim, 0.0f, false, MWWorld::Ptr(), ptr, osg::Vec3f(), false);
             MWMechanics::reduceWeaponCondition(0.f, false, weapon, ptr);
-            return;
+            return true;
         }
 
         int min,max;
@@ -423,10 +425,11 @@ namespace MWClass
 
         MWMechanics::diseaseContact(victim, ptr);
 
-        victim.getClass().onHit(victim, damage, healthdmg, weapon, ptr, hitPosition, true);
+        victim.getClass().onHit(victim, damage, healthdmg, weapon, ptr, hitPosition, true, attackStrength);
+        return true;
     }
 
-    void Creature::onHit(const MWWorld::Ptr &ptr, float damage, bool ishealth, const MWWorld::Ptr &object, const MWWorld::Ptr &attacker, const osg::Vec3f &hitPosition, bool successful) const
+    void Creature::onHit(const MWWorld::Ptr &ptr, float damage, bool ishealth, const MWWorld::Ptr &object, const MWWorld::Ptr &attacker, const osg::Vec3f &hitPosition, bool successful, float hitStrength) const
     {
         MWMechanics::CreatureStats& stats = getCreatureStats(ptr);
 
@@ -440,6 +443,8 @@ namespace MWClass
         // No retaliation for totally static creatures (they have no movement or attacks anyway)
         if (isMobile(ptr) && !attacker.isEmpty())
             setOnPcHitMe = MWBase::Environment::get().getMechanicsManager()->actorAttacked(ptr, attacker);
+
+        bool attackerIsPlayer = attacker == MWMechanics::getPlayer();
 
         // Attacker and target store each other as hitattemptactor if they have no one stored yet
         if (!attacker.isEmpty() && attacker.getClass().isActor())
@@ -480,7 +485,7 @@ namespace MWClass
         if (!object.isEmpty())
             stats.setLastHitAttemptObject(object.getCellRef().getRefId());
 
-        if (setOnPcHitMe && !attacker.isEmpty() && attacker == MWMechanics::getPlayer())
+        if (setOnPcHitMe && !attacker.isEmpty() && attackerIsPlayer)
         {
             const std::string &script = ptr.get<ESM::Creature>()->mBase->mScript;
             /* Set the OnPCHitMe script variable. The script is responsible for clearing it. */
@@ -491,7 +496,7 @@ namespace MWClass
         if (!successful)
         {
             // Missed
-            if (!attacker.isEmpty() && attacker == MWMechanics::getPlayer())
+            if (!attacker.isEmpty() && attackerIsPlayer)
                 MWBase::Environment::get().getSoundManager()->playSound3D(ptr, "miss", 1.0f, 1.0f);
             return;
         }
@@ -607,6 +612,16 @@ namespace MWClass
         /*
             End of tes3mp addition
         */
+
+        if(successful)
+        {
+            auto* inputManager = MWBase::Environment::get().getInputManager();
+            if (attackerIsPlayer && hitStrength > 0.f)
+            {
+                float hapticIntensity = std::max(0.25f, std::min(1.f, hitStrength));
+                inputManager->applyHapticsRightHand(hapticIntensity);
+            }
+        }
     }
 
     std::shared_ptr<MWWorld::Action> Creature::activate (const MWWorld::Ptr& ptr,

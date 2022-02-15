@@ -29,6 +29,7 @@ option(BUILD_BSATOOL            "Build BSA extractor" ON)
 option(BUILD_ESMTOOL            "Build ESM inspector" ON)
 option(BUILD_NIFTEST            "Build nif file tester" ON)
 option(BUILD_DOCS               "Build documentation." OFF )
+option(BUILD_OPENMW_VR          "Build VR support using OpenXR" ON)
 option(BUILD_WITH_CODE_COVERAGE "Enable code coverage with gconv" OFF)
 option(BUILD_UNITTESTS          "Enable Unittests with Google C++ Unittest" OFF)
 option(BUILD_BENCHMARKS         "Build benchmarks with Google Benchmark" OFF)
@@ -215,7 +216,7 @@ endif()
 # Start of tes3mp addition
 #
 # Don't require certain dependencies for the server
-IF(BUILD_OPENMW OR BUILD_OPENCS)
+IF(BUILD_OPENMW OR BUILD_OPENCS OR BUILD_OPENMW_VR)
 # End of tes3mp addition
 set(USED_OSG_COMPONENTS
     osgDB
@@ -239,7 +240,7 @@ set(USED_OSG_PLUGINS
 # Start of tes3mp addition
 #
 # Don't require certain dependencies for the server
-ENDIF(BUILD_OPENMW OR BUILD_OPENCS)
+ENDIF(BUILD_OPENMW OR BUILD_OPENCS OR BUILD_OPENMW_VR)
 # End of tes3mp addition
 
 add_subdirectory(extern)
@@ -249,7 +250,7 @@ add_subdirectory(extern)
 # Start of tes3mp addition
 #
 # Don't require certain dependencies for the server
-IF(BUILD_OPENMW OR BUILD_OPENCS)
+IF(BUILD_OPENMW OR BUILD_OPENCS OR BUILD_OPENMW_VR)
 # End of tes3mp addition
 # Require at least ffmpeg 3.2 for now
 SET(FFVER_OK FALSE)
@@ -312,7 +313,7 @@ endif()
 # Start of tes3mp addition
 #
 # Don't require certain dependencies for the server
-ENDIF(BUILD_OPENMW OR BUILD_OPENCS)
+ENDIF(BUILD_OPENMW OR BUILD_OPENCS OR BUILD_OPENMW_VR)
 # End of tes3mp addition
 
 # Platform specific
@@ -332,7 +333,7 @@ endif()
 # Start of tes3mp addition
 #
 # Don't require certain dependencies for the server
-IF(BUILD_OPENMW OR BUILD_OPENCS)
+IF(BUILD_OPENMW OR BUILD_OPENCS OR BUILD_OPENMW_VR)
 # End of tes3mp addition
 if(OPENMW_USE_SYSTEM_BULLET)
     set(REQUIRED_BULLET_VERSION 286) # Bullet 286 required due to runtime bugfixes for btCapsuleShape
@@ -369,7 +370,7 @@ endif()
 # Start of tes3mp addition
 #
 # Don't require certain dependencies for the server
-ENDIF(BUILD_OPENMW OR BUILD_OPENCS)
+ENDIF(BUILD_OPENMW OR BUILD_OPENCS OR BUILD_OPENMW_VR)
 # End of tes3mp addition
 
 if (NOT WIN32 AND BUILD_WIZARD) # windows users can just run the morrowind installer
@@ -394,10 +395,12 @@ endif()
 #
 # Don't require certain dependencies for the server
 # but keep OSG's headers (HACK)
-IF(BUILD_OPENMW OR BUILD_OPENCS)
+IF(BUILD_OPENMW OR BUILD_OPENCS OR BUILD_OPENMW_VR)
 # End of tes3mp addition
+
 if(OPENMW_USE_SYSTEM_OSG)
-    find_package(OpenSceneGraph 3.4.0 REQUIRED ${USED_OSG_COMPONENTS})
+    find_package(OpenSceneGraph ${OSG_VERSION_REQUIRED} REQUIRED ${USED_OSG_COMPONENTS})
+
     if (${OPENSCENEGRAPH_VERSION} VERSION_GREATER 3.6.2 AND ${OPENSCENEGRAPH_VERSION} VERSION_LESS 3.6.5)
         message(FATAL_ERROR "OpenSceneGraph version ${OPENSCENEGRAPH_VERSION} has critical regressions which cause crashes. Please upgrade to 3.6.5 or later. We strongly recommend using the tip of the official 'OpenSceneGraph-3.6' branch or the tip of '3.6' OpenMW/osg (OSGoS).")
     endif()
@@ -416,9 +419,9 @@ endif()
 #
 # Don't require certain dependencies for the server
 # but keep OSG's headers (HACK)
-ELSE(BUILD_OPENMW OR BUILD_OPENCS)
+ELSE(BUILD_OPENMW OR BUILD_OPENCS OR BUILD_OPENMW_VR)
     include_directories(${OPENSCENEGRAPH_INCLUDE_DIRS})
-ENDIF(BUILD_OPENMW OR BUILD_OPENCS)
+ENDIF(BUILD_OPENMW OR BUILD_OPENCS OR BUILD_OPENMW_VR)
 # End of tes3mp addition
 
 set(BOOST_COMPONENTS system filesystem program_options iostreams)
@@ -441,7 +444,7 @@ find_package(Boost 1.6.2 REQUIRED COMPONENTS ${BOOST_COMPONENTS} OPTIONAL_COMPON
 # Start of tes3mp addition
 #
 # Don't require certain dependencies for the server
-IF(BUILD_OPENMW OR BUILD_OPENCS)
+IF(BUILD_OPENMW OR BUILD_OPENCS OR BUILD_OPENMW_VR)
 # End of tes3mp addition
 if(OPENMW_USE_SYSTEM_MYGUI)
     find_package(MyGUI 3.2.2 REQUIRED)
@@ -449,7 +452,7 @@ endif()
 # End of tes3mp addition
 #
 # Don't require certain dependencies for the server
-ENDIF(BUILD_OPENMW OR BUILD_OPENCS)
+ENDIF(BUILD_OPENMW OR BUILD_OPENCS OR BUILD_OPENMW_VR)
 # End of tes3mp addition
 find_package(SDL2 2.0.9 REQUIRED)
 # Start of tes3mp addition
@@ -520,6 +523,9 @@ configure_resource_file(${OpenMW_SOURCE_DIR}/files/tes3mp/tes3mp-server-default.
 
 pack_resource_file(${OpenMW_SOURCE_DIR}/files/settings-default.cfg
     "${OpenMW_BINARY_DIR}" "defaults.bin")
+
+configure_resource_file(${OpenMW_SOURCE_DIR}/files/settings-overrides-vr.cfg
+    "${OpenMW_BINARY_DIR}" "settings-overrides-vr.cfg")
 
 configure_resource_file(${OpenMW_SOURCE_DIR}/files/openmw.appdata.xml
     "${OpenMW_BINARY_DIR}" "openmw.appdata.xml")
@@ -598,20 +604,20 @@ endif (CMAKE_CXX_COMPILER_ID STREQUAL GNU OR CMAKE_CXX_COMPILER_ID STREQUAL Clan
 # Start of tes3mp addition
 #
 # Don't require certain dependencies for the server
-IF(BUILD_OPENMW OR BUILD_OPENCS)
+IF(BUILD_OPENMW OR BUILD_OPENCS OR BUILD_OPENMW_VR)
 # End of tes3mp addition
 add_subdirectory (extern/osg-ffmpeg-videoplayer)
 add_subdirectory (extern/oics)
 # Start of tes3mp addition
 #
 # Don't require certain dependencies for the server
-ENDIF(BUILD_OPENMW OR BUILD_OPENCS)
+ENDIF(BUILD_OPENMW OR BUILD_OPENCS OR BUILD_OPENMW_VR)
 # End of tes3mp addition
 add_subdirectory (extern/Base64)
 # Start of tes3mp addition
 #
 # Don't require certain dependencies for the server
-IF(BUILD_OPENMW OR BUILD_OPENCS)
+IF(BUILD_OPENMW OR BUILD_OPENCS OR BUILD_OPENMW_VR)
 # End of tes3mp addition
 if (BUILD_OPENCS)
     add_subdirectory (extern/osgQt)
@@ -619,7 +625,7 @@ endif()
 # Start of tes3mp addition
 #
 # Don't require certain dependencies for the server
-ENDIF(BUILD_OPENMW OR BUILD_OPENCS)
+ENDIF(BUILD_OPENMW OR BUILD_OPENCS OR BUILD_OPENMW_VR)
 # End of tes3mp addition
 
 # Components
@@ -635,7 +641,7 @@ if (BUILD_MASTER)
     add_subdirectory( apps/master )
 endif()
 
-if (BUILD_OPENMW)
+if (BUILD_OPENMW OR BUILD_OPENMW_VR)
     add_subdirectory( apps/openmw )
 endif()
 
@@ -712,6 +718,23 @@ if (WIN32)
         set_target_properties(tes3mp PROPERTIES LINK_FLAGS_MINSIZEREL "/SUBSYSTEM:WINDOWS")
     endif()
 
+    # TODO: properties and link targets should be copied from openmw to openmw_vr instead of duplicating every line
+    if (USE_DEBUG_CONSOLE AND BUILD_OPENMW_VR)
+      set_target_properties(openmw_vr PROPERTIES LINK_FLAGS_DEBUG "/SUBSYSTEM:CONSOLE")
+      set_target_properties(openmw_vr PROPERTIES LINK_FLAGS_RELWITHDEBINFO "/SUBSYSTEM:CONSOLE")
+      set_target_properties(openmw_vr PROPERTIES COMPILE_DEFINITIONS $<$<CONFIG:Debug>:_CONSOLE>)
+    elseif (BUILD_OPENMW_VR)
+      # Turn off debug console, debug output will be written to visual studio output instead
+      set_target_properties(openmw_vr PROPERTIES LINK_FLAGS_DEBUG "/SUBSYSTEM:WINDOWS")
+      set_target_properties(openmw_vr PROPERTIES LINK_FLAGS_RELWITHDEBINFO "/SUBSYSTEM:WINDOWS")
+    endif()
+
+    if (BUILD_OPENMW_VR)
+        # Release builds don't use the debug console
+        set_target_properties(openmw_vr PROPERTIES LINK_FLAGS_RELEASE "/SUBSYSTEM:WINDOWS")
+        set_target_properties(openmw_vr PROPERTIES LINK_FLAGS_MINSIZEREL "/SUBSYSTEM:WINDOWS")
+    endif()
+
     # Play a bit with the warning levels
 
     set(WARNINGS "/W4")
@@ -781,6 +804,14 @@ if (WIN32)
             set_target_properties(tes3mp PROPERTIES COMPILE_FLAGS "${WARNINGS} ${MT_BUILD} /bigobj")
         else()
             set_target_properties(tes3mp PROPERTIES COMPILE_FLAGS "${WARNINGS} ${MT_BUILD}")
+        endif()
+    endif()
+
+    if (BUILD_OPENMW_VR)
+        if (OPENMW_UNITY_BUILD)
+            set_target_properties(openmw_vr PROPERTIES COMPILE_FLAGS "${WARNINGS} ${MT_BUILD} /bigobj")
+        else()
+            set_target_properties(openmw_vr PROPERTIES COMPILE_FLAGS "${WARNINGS} ${MT_BUILD}")
         endif()
     endif()
 
@@ -936,6 +967,7 @@ elseif(NOT APPLE)
         INSTALL(FILES "${INSTALL_SOURCE}/tes3mp-server-default.cfg" DESTINATION ".")
         # End of tes3mp addition
         INSTALL(FILES "${INSTALL_SOURCE}/gamecontrollerdb.txt" DESTINATION ".")
+        INSTALL(FILES "${INSTALL_SOURCE}/xrcontrollersuggestions.xml" DESTINATION ".")
 
         INSTALL(DIRECTORY "${INSTALL_SOURCE}/resources" DESTINATION ".")
 
@@ -1076,6 +1108,7 @@ elseif(NOT APPLE)
         INSTALL(FILES "${INSTALL_SOURCE}/openmw.cfg.install" DESTINATION "${SYSCONFDIR}" RENAME "openmw.cfg" COMPONENT "openmw")
         INSTALL(FILES "${INSTALL_SOURCE}/resources/version" DESTINATION "${SYSCONFDIR}" COMPONENT "openmw")
         INSTALL(FILES "${INSTALL_SOURCE}/gamecontrollerdb.txt" DESTINATION "${SYSCONFDIR}" COMPONENT "openmw")
+        INSTALL(FILES "${INSTALL_SOURCE}/xrcontrollersuggestions.xml" DESTINATION "${SYSCONFDIR}" COMPONENT "openmw")
 
         # Start of tes3mp addition
         INSTALL(FILES "${INSTALL_SOURCE}/tes3mp-client-default.cfg" DESTINATION "${SYSCONFDIR}" COMPONENT "openmw")

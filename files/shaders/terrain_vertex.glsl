@@ -1,4 +1,4 @@
-#version 120
+#version 130
 
 #if @useUBO
     #extension GL_ARB_uniform_buffer_object : require

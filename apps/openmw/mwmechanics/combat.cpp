@@ -294,7 +294,7 @@ namespace MWMechanics
                     End of tes3mp addition
                 */
 
-                victim.getClass().onHit(victim, damage, false, projectile, attacker, osg::Vec3f(), false);
+                victim.getClass().onHit(victim, damage, false, projectile, attacker, osg::Vec3f(), false, attackStrength);
                 MWMechanics::reduceWeaponCondition(damage, false, weapon, attacker);
                 return;
             }
@@ -354,7 +354,7 @@ namespace MWMechanics
                     victim.getClass().getContainerStore(victim).add(projectile, 1, victim);
             }
 
-            victim.getClass().onHit(victim, damage, true, projectile, attacker, hitPosition, true);
+            victim.getClass().onHit(victim, damage, true, projectile, attacker, hitPosition, true, attackStrength);
         }
         /*
             Start of tes3mp addition

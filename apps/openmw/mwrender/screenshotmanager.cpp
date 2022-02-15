@@ -9,6 +9,7 @@
 #include <osg/TextureCubeMap>
 
 #include <components/misc/stringops.hpp>
+#include <components/misc/callbackmanager.hpp>
 #include <components/resource/resourcesystem.hpp>
 #include <components/resource/scenemanager.hpp>
 #include <components/shader/shadermanager.hpp>
@@ -113,7 +114,7 @@ namespace MWRender
 
     void ScreenshotManager::screenshot(osg::Image* image, int w, int h)
     {
-        osg::Camera* camera = mViewer->getCamera();
+        osg::Camera * camera = mViewer->getCamera();
         osg::ref_ptr<osg::Drawable> tempDrw = new osg::Drawable;
         tempDrw->setDrawCallback(new ReadImageFromFramebufferCallback(image, w, h));
         tempDrw->setCullingActive(false);
@@ -324,8 +325,8 @@ namespace MWRender
         rttCamera->setUpdateCallback(new NoTraverseCallback);
         rttCamera->addChild(mSceneRoot);
 
-        rttCamera->addChild(mWater->getReflectionCamera());
-        rttCamera->addChild(mWater->getRefractionCamera());
+        rttCamera->addChild(mWater->getReflectionNode());
+        rttCamera->addChild(mWater->getRefractionNode());
 
         rttCamera->setCullMask(mViewer->getCamera()->getCullMask() & (~Mask_GUI));
 

@@ -31,6 +31,7 @@ set(SHADER_FILES
     nv_default_fragment.glsl
     nv_nolighting_vertex.glsl
     nv_nolighting_fragment.glsl
+    stereo_geometry.glsl
 )
 
 copy_all_resource_files(${CMAKE_CURRENT_SOURCE_DIR} ${OPENMW_SHADERS_ROOT} ${DDIRRELATIVE} "${SHADER_FILES}")

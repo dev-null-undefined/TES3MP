@@ -57,6 +57,7 @@
 #include "../mwworld/inventorystore.hpp"
 #include "../mwworld/esmstore.hpp"
 #include "../mwworld/player.hpp"
+#include "../mwrender/npcanimation.hpp"
 
 #include "aicombataction.hpp"
 #include "movement.hpp"
@@ -65,6 +66,12 @@
 #include "security.hpp"
 #include "actorutil.hpp"
 #include "spellcasting.hpp"
+
+#ifdef USE_OPENXR
+#include "../mwvr/vrenvironment.hpp"
+#include "../mwvr/vranimation.hpp"
+#include "../mwvr/vrutil.hpp"
+#endif
 
 namespace
 {
@@ -1106,7 +1113,7 @@ void CharacterController::handleTextKey(const std::string &groupname, SceneUtil:
         else if (groupname == "attack3" || groupname == "swimattack3")
             mPtr.getClass().hit(mPtr, mAttackStrength, ESM::Weapon::AT_Thrust);
         else
-            mPtr.getClass().hit(mPtr, mAttackStrength);
+            mPtr.getClass().hit(mPtr, mAttackStrength, -1);
     }
     else if (!groupname.empty()
              && (groupname.compare(0, groupname.size()-1, "attack") == 0 || groupname.compare(0, groupname.size()-1, "swimattack") == 0)
@@ -1720,9 +1727,13 @@ bool CharacterController::updateWeaponState(CharacterState& idle)
             {
                 MWWorld::ContainerStoreIterator weapon = mPtr.getClass().getInventoryStore(mPtr).getSlot(MWWorld::InventoryStore::Slot_CarriedRight);
                 MWWorld::Ptr item = *weapon;
-                // TODO: this will only work for the player, and needs to be fixed if NPCs should ever use lockpicks/probes.
-                MWWorld::Ptr target = MWBase::Environment::get().getWorld()->getFacedObject();
                 std::string resultMessage, resultSound;
+                // TODO: this will only work for the player, and needs to be fixed if NPCs should ever use lockpicks/probes.
+#ifdef USE_OPENXR
+                MWWorld::Ptr target = MWVR::Util::getWeaponTarget().first;
+#else
+                MWWorld::Ptr target = MWBase::Environment::get().getWorld()->getFacedObject();
+#endif
 
                 if(!target.isEmpty())
                 {
@@ -2663,6 +2674,18 @@ void CharacterController::update(float duration)
     mSkipAnim = false;
 
     mAnimation->enableHeadAnimation(cls.isActor() && !cls.getCreatureStats(mPtr).isDead());
+
+#ifdef USE_OPENXR
+    if (isPlayer)
+    {
+        auto disabled = MWBase::Environment::get().getWorld()->getPlayer().isDisabled();
+        auto animation = static_cast<MWRender::NpcAnimation*>(mAnimation);
+        if (disabled)
+            animation->setViewMode(MWRender::NpcAnimation::VM_VRNormal);
+        else
+            animation->setViewMode(MWRender::NpcAnimation::VM_VRFirstPerson);
+    }
+#endif
 }
 
 void CharacterController::persistAnimationState()

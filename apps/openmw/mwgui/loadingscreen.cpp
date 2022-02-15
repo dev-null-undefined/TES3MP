@@ -14,6 +14,7 @@
 #include <MyGUI_TextBox.h>
 
 #include <components/misc/rng.hpp>
+#include <components/misc/callbackmanager.hpp>
 #include <components/debug/debuglog.hpp>
 #include <components/myguiplatform/myguitexture.hpp>
 #include <components/settings/settings.hpp>
@@ -331,12 +332,7 @@ namespace MWGui
             mCopyFramebufferToTextureCallback = new CopyFramebufferToTextureCallback(mTexture);
         }
 
-#if OSG_VERSION_GREATER_OR_EQUAL(3, 5, 10)
-        mViewer->getCamera()->removeInitialDrawCallback(mCopyFramebufferToTextureCallback);
-        mViewer->getCamera()->addInitialDrawCallback(mCopyFramebufferToTextureCallback);
-#else
-        mViewer->getCamera()->setInitialDrawCallback(mCopyFramebufferToTextureCallback);
-#endif
+        Misc::CallbackManager::instance().addCallbackOneshot(Misc::CallbackManager::DrawStage::Initial, mCopyFramebufferToTextureCallback);
         mCopyFramebufferToTextureCallback->reset();
 
         mBackgroundImage->setBackgroundImage("");
@@ -375,9 +371,7 @@ namespace MWGui
         // at the time this function is called we are in the middle of a frame,
         // so out of order calls are necessary to get a correct frameNumber for the next frame.
         // refer to the advance() and frame() order in Engine::go()
-        mViewer->eventTraversal();
-        mViewer->updateTraversal();
-        mViewer->renderingTraversals();
+        MWBase::Environment::get().getWindowManager()->viewerTraversals(false);
         mViewer->advance(mViewer->getFrameStamp()->getSimulationTime());
 
         mLastRenderTime = mTimer.time_m();

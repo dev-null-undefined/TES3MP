@@ -959,7 +959,7 @@ void NpcAnimation::addControllers()
             mActiveControllers.emplace_back(node, mFirstPersonNeckController);
         }
     }
-    else if (mViewMode == VM_Normal)
+    else if (mViewMode != VM_HeadOnly)
     {
         WeaponAnimation::addControllers(mNodeMap, mActiveControllers, mObjectRoot.get());
     }

@@ -13,6 +13,10 @@
 
 #include "mwworld/ptr.hpp"
 
+#ifdef USE_OPENXR
+#include "mwvr/vrenvironment.hpp"
+#endif
+
 namespace Resource
 {
     class ResourceSystem;
@@ -31,6 +35,12 @@ namespace VFS
 namespace Compiler
 {
     class Context;
+}
+
+namespace Misc
+{
+    class StereoView;
+    class CallbackManager;
 }
 
 namespace Files
@@ -66,6 +76,13 @@ namespace OMW
             std::string mCellName;
             std::vector<std::string> mContentFiles;
             std::vector<std::string> mGroundcoverFiles;
+
+            bool mStereoEnabled;
+            bool mStereoOverride;
+            std::unique_ptr<Misc::StereoView> mStereoView;
+
+            std::unique_ptr<Misc::CallbackManager> mCallbackManager;
+
             bool mSkipMenu;
             bool mUseSound;
             bool mCompileAll;
@@ -185,6 +202,12 @@ namespace OMW
 
         private:
             Files::ConfigurationManager& mCfgMgr;
+
+#ifdef USE_OPENXR
+            MWVR::Environment mXrEnvironment;
+
+            void initVr();
+#endif
     };
 }
 

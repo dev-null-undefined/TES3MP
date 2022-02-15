@@ -30,7 +30,11 @@ namespace MWGui
     std::string ToolTips::sSchoolNames[] = {"#{sSchoolAlteration}", "#{sSchoolConjuration}", "#{sSchoolDestruction}", "#{sSchoolIllusion}", "#{sSchoolMysticism}", "#{sSchoolRestoration}"};
 
     ToolTips::ToolTips() :
+#ifdef USE_OPENXR
+        Layout("openmw_tooltips_vr.layout")
+#else
         Layout("openmw_tooltips.layout")
+#endif
         , mFocusToolTipX(0.0)
         , mFocusToolTipY(0.0)
         , mHorizontalScrollIndex(0)
@@ -52,7 +56,9 @@ namespace MWGui
         mDynamicToolTipBox->setNeedMouseFocus(false);
         mMainWidget->setNeedMouseFocus(false);
 
-        mDelay = Settings::Manager::getFloat("tooltip delay", "GUI");
+        // Tooltip delay is not useful in vr as a player cannot be perfectly still.
+        if (!MWBase::Environment::get().getVrMode())
+            mDelay = Settings::Manager::getFloat("tooltip delay", "GUI");
         mRemainingDelay = mDelay;
 
         for (unsigned int i=0; i < mMainWidget->getChildCount(); ++i)

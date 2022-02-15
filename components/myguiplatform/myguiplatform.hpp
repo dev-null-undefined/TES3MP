@@ -47,6 +47,7 @@ namespace osgMyGUI
         DataManager* mDataManager;
         MyGUI::LogManager* mLogManager;
         LogFacility* mLogFacility;
+        bool mVRMode;
 
         void operator=(const Platform&);
         Platform(const Platform&);

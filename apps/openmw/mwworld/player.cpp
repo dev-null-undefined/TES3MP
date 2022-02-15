@@ -235,6 +235,11 @@ namespace MWWorld
          return ptr.getClass().getNpcStats(ptr).getDrawState();
     }
 
+    void Player::activate(MWWorld::Ptr obj)
+    {
+        MWBase::Environment::get().getWorld()->activate(obj, getPlayer());
+    }
+
     void Player::activate()
     {
         if (MWBase::Environment::get().getWindowManager()->isGuiMode())
@@ -312,6 +317,18 @@ namespace MWWorld
 
     bool Player::isInCombat() {
         return MWBase::Environment::get().getMechanicsManager()->getActorsFighting(getPlayer()).size() != 0;
+    }
+
+    bool Player::isDisabled()
+    {
+        bool disabled = false;
+        auto ptr = getPlayer();
+        const MWWorld::Class& cls = ptr.getClass();
+        auto& stats = cls.getCreatureStats(ptr);
+        disabled |= stats.getKnockedDown();
+        disabled |= stats.getMagicEffects().get(ESM::MagicEffect::Paralyze).getMagnitude() > 0.f;
+        disabled |= stats.isDead();
+        return disabled;
     }
 
     bool Player::enemiesNearby()

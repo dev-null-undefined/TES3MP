@@ -22,6 +22,11 @@
 #include "../mwbase/windowmanager.hpp"
 #include "../mwbase/environment.hpp"
 
+#ifdef USE_OPENXR
+#include "../mwvr/vrenvironment.hpp"
+#include "../mwvr/vrgui.hpp"
+#endif
+
 namespace MWGui
 {
 
@@ -102,6 +107,11 @@ void KeyboardNavigation::_unlinkWidget(MyGUI::Widget *widget)
             w.second = nullptr;
     if (widget == mCurrentFocus)
         mCurrentFocus = nullptr;
+
+#ifdef USE_OPENXR
+    if (MWBase::Environment::get().getVrMode())
+        MWVR::Environment::get().getGUIManager()->notifyWidgetUnlinked(widget);
+#endif
 }
 
 #if MYGUI_VERSION < MYGUI_DEFINE_VERSION(3,2,3)

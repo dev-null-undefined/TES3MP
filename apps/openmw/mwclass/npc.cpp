@@ -29,6 +29,7 @@
 */
 
 #include "../mwbase/environment.hpp"
+#include "../mwbase/inputmanager.hpp"
 #include "../mwbase/world.hpp"
 #include "../mwbase/mechanicsmanager.hpp"
 #include "../mwbase/windowmanager.hpp"
@@ -548,7 +549,7 @@ namespace MWClass
     }
 
 
-    void Npc::hit(const MWWorld::Ptr& ptr, float attackStrength, int type) const
+    bool Npc::hit(const MWWorld::Ptr& ptr, float attackStrength, int type, bool simulated) const
     {
         /*
             Start of tes3mp addition
@@ -557,7 +558,7 @@ namespace MWClass
         */
         if (mwmp::PlayerList::isDedicatedPlayer(ptr) || mwmp::Main::get().getCellController()->isDedicatedActor(ptr))
         {
-            return;
+            return false;
         }
         /*
             End of tes3mp addition
@@ -574,7 +575,11 @@ namespace MWClass
         if(!weapon.isEmpty() && weapon.getTypeName() != typeid(ESM::Weapon).name())
             weapon = MWWorld::Ptr();
 
-        MWMechanics::applyFatigueLoss(ptr, weapon, attackStrength);
+        if (getCreatureStats(ptr).getDrawState() != MWMechanics::DrawState_Weapon)
+            return false;
+
+        if (!simulated)
+            MWMechanics::applyFatigueLoss(ptr, weapon, attackStrength);
 
         const float fCombatDistance = store.find("fCombatDistance")->mValue.getFloat();
         float dist = fCombatDistance * (!weapon.isEmpty() ?
@@ -591,9 +596,10 @@ namespace MWClass
         MWWorld::Ptr victim = result.first;
         osg::Vec3f hitPosition (result.second);
         if(victim.isEmpty()) // Didn't hit anything
-            return;
+            return false;
 
         const MWWorld::Class &othercls = victim.getClass();
+
         /*
             Start of tes3mp change (major)
 
@@ -607,13 +613,18 @@ namespace MWClass
             objectList->packetOrigin = mwmp::CLIENT_GAMEPLAY;
             objectList->addObjectHit(victim, ptr);
             objectList->sendObjectHit();
+            return false;
         }
         /*
             End of tes3mp change (major)
         */
+
         MWMechanics::CreatureStats &otherstats = othercls.getCreatureStats(victim);
         if(otherstats.isDead()) // Can't hit dead actors
-            return;
+            return false;
+
+        if (simulated)
+            return true;
 
         if(ptr == MWMechanics::getPlayer())
             MWBase::Environment::get().getWindowManager()->setEnemy(victim);
@@ -671,7 +682,7 @@ namespace MWClass
 
             othercls.onHit(victim, 0.0f, false, weapon, ptr, osg::Vec3f(), false);
             MWMechanics::reduceWeaponCondition(0.f, false, weapon, ptr);
-            return;
+            return true;
         }
 
         bool healthdmg;
@@ -744,14 +755,16 @@ namespace MWClass
 
         MWMechanics::diseaseContact(victim, ptr);
 
-        othercls.onHit(victim, damage, healthdmg, weapon, ptr, hitPosition, true);
+        othercls.onHit(victim, damage, healthdmg, weapon, ptr, hitPosition, true, attackStrength);
+        return true;
     }
 
-    void Npc::onHit(const MWWorld::Ptr &ptr, float damage, bool ishealth, const MWWorld::Ptr &object, const MWWorld::Ptr &attacker, const osg::Vec3f &hitPosition, bool successful) const
+    void Npc::onHit(const MWWorld::Ptr &ptr, float damage, bool ishealth, const MWWorld::Ptr &object, const MWWorld::Ptr &attacker, const osg::Vec3f &hitPosition, bool successful, float hitStrength) const
     {
         MWBase::SoundManager *sndMgr = MWBase::Environment::get().getSoundManager();
         MWMechanics::CreatureStats& stats = getCreatureStats(ptr);
         bool wasDead = stats.isDead();
+        float rawDamage = damage;
 
         // Note OnPcHitMe is not set for friendly hits.
         bool setOnPcHitMe = true;
@@ -762,6 +775,8 @@ namespace MWClass
             stats.setAttacked(true);
             setOnPcHitMe = MWBase::Environment::get().getMechanicsManager()->actorAttacked(ptr, attacker);
         }
+        bool attackerIsPlayer = attacker == MWMechanics::getPlayer();
+        bool victimIsPlayer = ptr == MWMechanics::getPlayer();
 
         // Attacker and target store each other as hitattemptactor if they have no one stored yet
         if (!attacker.isEmpty() && attacker.getClass().isActor())
@@ -802,7 +817,7 @@ namespace MWClass
         if (!object.isEmpty())
             stats.setLastHitAttemptObject(object.getCellRef().getRefId());
 
-        if (setOnPcHitMe && !attacker.isEmpty() && attacker == MWMechanics::getPlayer())
+        if (setOnPcHitMe && !attacker.isEmpty() && attackerIsPlayer)
         {
             const std::string &script = getScript(ptr);
             /* Set the OnPCHitMe script variable. The script is responsible for clearing it. */
@@ -813,7 +828,7 @@ namespace MWClass
         if (!successful)
         {
             // Missed
-            if (!attacker.isEmpty() && attacker == MWMechanics::getPlayer())
+            if (!attacker.isEmpty() && attackerIsPlayer)
                 sndMgr->playSound3D(ptr, "miss", 1.0f, 1.0f);
             return;
         }
@@ -828,7 +843,7 @@ namespace MWClass
         if (damage < 0.001f)
             damage = 0;
 
-        bool godmode = ptr == MWMechanics::getPlayer() && MWBase::Environment::get().getWorld()->getGodModeState();
+        bool godmode = victimIsPlayer && MWBase::Environment::get().getWorld()->getGodModeState();
 
         if (godmode)
             damage = 0;
@@ -1046,6 +1061,23 @@ namespace MWClass
         /*
             End of tes3mp addition
         */
+
+        // Apply haptics
+        if (successful)
+        {
+            auto* inputManager = MWBase::Environment::get().getInputManager();
+            if (victimIsPlayer)
+            {
+                float maxHealth = getCreatureStats(ptr).getHealth().getModified();
+                float hapticIntensity = std::max(0.25f, std::min(1.f, rawDamage / ( maxHealth / 4.f)));
+                inputManager->applyHapticsLeftHand(hapticIntensity);
+            }
+            else if (attackerIsPlayer && hitStrength > 0.f)
+            {
+                float hapticIntensity = std::max(0.25f, std::min(1.f, hitStrength));
+                inputManager->applyHapticsRightHand(hapticIntensity);
+            }
+        }
     }
 
     std::shared_ptr<MWWorld::Action> Npc::activate (const MWWorld::Ptr& ptr,

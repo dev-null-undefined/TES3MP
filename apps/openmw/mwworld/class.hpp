@@ -121,19 +121,22 @@ namespace MWWorld
             ///< Return item max health or throw an exception, if class does not have item health
             /// (default implementation: throw an exception)
 
-            virtual void hit(const Ptr& ptr, float attackStrength, int type=-1) const;
+            virtual bool hit(const Ptr& ptr, float attackStrength, int type, bool simulated = false ) const;
             ///< Execute a melee hit, using the current weapon. This will check the relevant skills
             /// of the given attacker, and whoever is hit.
             /// \param attackStrength how long the attack was charged for, a value in 0-1 range.
             /// \param type - type of attack, one of the MWMechanics::CreatureStats::AttackType
             ///               enums. ignored for creature attacks.
+            /// \param simulated - If true, this function will only check if a hit would be made, and have no side effects. This parameter has no effect for Creature classes.
+            /// @return True if the attack had a victim, regardless if hit was successful or not.
             /// (default implementation: throw an exception)
 
-            virtual void onHit(const MWWorld::Ptr &ptr, float damage, bool ishealth, const MWWorld::Ptr &object, const MWWorld::Ptr &attacker, const osg::Vec3f &hitPosition, bool successful) const;
+            virtual void onHit(const MWWorld::Ptr &ptr, float damage, bool ishealth, const MWWorld::Ptr &object, const MWWorld::Ptr &attacker, const osg::Vec3f &hitPosition, bool successful, float hitStrength = 0.f) const;
             ///< Alerts \a ptr that it's being hit for \a damage points to health if \a ishealth is
             /// true (else fatigue) by \a object (sword, arrow, etc). \a attacker specifies the
             /// actor responsible for the attack, and \a successful specifies if the hit is
-            /// successful or not.
+            /// successful or not. \a hitStrength is the fraction of max attack strength applied, and is
+            /// used to determine haptic feedback intensity.
 
             virtual void block (const Ptr& ptr) const;
             ///< Play the appropriate sound for a blocked attack, depending on the currently equipped shield

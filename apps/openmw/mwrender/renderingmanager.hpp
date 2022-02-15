@@ -68,6 +68,11 @@ namespace DetourNavigator
     struct Settings;
 }
 
+namespace MWVR
+{
+    class UserPointer;
+}
+
 namespace MWRender
 {
     class GroundcoverUpdater;
@@ -90,10 +95,25 @@ namespace MWRender
     class ObjectPaging;
     class Groundcover;
 
+    // Result data of ray cast methods.
+    // Needs to be declared outside the RenderingManager class to be forward declarable
+    struct RayResult
+    {
+        bool mHit;
+        osg::Vec3f mHitNormalWorld;
+        osg::Vec3f mHitPointWorld;
+        osg::Vec3f mHitPointLocal;
+        MWWorld::Ptr mHitObject;
+        osg::Node* mHitNode;
+        /// Cast a ray between two points
+        ESM::RefNum mHitRefnum;
+        float mRatio;
+    };
+
     class RenderingManager : public MWRender::RenderingInterface
     {
     public:
-        RenderingManager(osgViewer::Viewer* viewer, osg::ref_ptr<osg::Group> rootNode,
+        RenderingManager(osgViewer::Viewer* viewer, osg::ref_ptr<osg::Group> rootNode, std::unique_ptr<Camera> camera,
                          Resource::ResourceSystem* resourceSystem, SceneUtil::WorkQueue* workQueue,
                          const std::string& resourcePath, DetourNavigator::Navigator& navigator);
         ~RenderingManager();
@@ -110,6 +130,8 @@ namespace MWRender
 
         osg::Uniform* mUniformNear;
         osg::Uniform* mUniformFar;
+        osg::Uniform* mUniformStereoViewOffsets;
+        osg::Uniform* mUniformStereoProjections;
 
         void preloadCommonAssets();
 
@@ -153,17 +175,10 @@ namespace MWRender
         void screenshot(osg::Image* image, int w, int h);
         bool screenshot360(osg::Image* image);
 
-        struct RayResult
-        {
-            bool mHit;
-            osg::Vec3f mHitNormalWorld;
-            osg::Vec3f mHitPointWorld;
-            MWWorld::Ptr mHitObject;
-            ESM::RefNum mHitRefnum;
-            float mRatio;
-        };
-
         RayResult castRay(const osg::Vec3f& origin, const osg::Vec3f& dest, bool ignorePlayer, bool ignoreActors=false);
+
+        /// Cast a ray from a node in the scene graph
+        RayResult castRay(const osg::Transform* source, float maxDistance, bool ignorePlayer, bool ignoreActors=false);
 
         /// Return the object under the mouse cursor / crosshair position, given by nX and nY normalized screen coordinates,
         /// where (0,0) is the top left corner.
@@ -240,6 +255,10 @@ namespace MWRender
         bool pagingUnlockCache();
         void getPagedRefnums(const osg::Vec4i &activeGrid, std::set<ESM::RefNum> &out);
 
+#ifdef USE_OPENXR
+        MWVR::UserPointer& userPointer();
+#endif
+
     private:
         void updateProjectionMatrix();
         void updateTextureFiltering();
@@ -292,6 +311,10 @@ namespace MWRender
         std::unique_ptr<Camera> mCamera;
         std::unique_ptr<ViewOverShoulderController> mViewOverShoulderController;
         osg::Vec3f mCurrentCameraPos;
+
+#ifdef USE_OPENXR
+        std::shared_ptr<MWVR::UserPointer> mUserPointer;
+#endif
 
         osg::ref_ptr<StateUpdater> mStateUpdater;
 

@@ -35,7 +35,7 @@ add_component_dir (settings
 # Start of tes3mp change
 #
 # Don't include certain components in server-only builds
-IF (BUILD_OPENMW OR BUILD_OPENCS)
+IF (BUILD_OPENMW OR BUILD_OPENCS OR BUILD_OPENMW_VR)
 # End of tes3mp change
 add_component_dir (bsa
     bsa_file compressedbsafile memorystream
@@ -57,7 +57,7 @@ add_component_dir (shader
 add_component_dir (sceneutil
     clone attach visitor util statesetupdater controller skeleton riggeometry morphgeometry lightcontroller
     lightmanager lightutil positionattitudetransform workqueue unrefqueue pathgridutil waterutil writescene serialize optimizer
-    actorutil detourdebugdraw navmesh agentpath shadow mwshadowtechnique recastmesh shadowsbin osgacontroller
+    actorutil detourdebugdraw navmesh agentpath shadow mwshadowtechnique recastmesh shadowsbin osgacontroller rtt
     )
 
 add_component_dir (nif
@@ -74,7 +74,7 @@ add_component_dir (nifbullet
 # Start of tes3mp change
 #
 # Don't include certain components in server-only builds
-ENDIF (BUILD_OPENMW OR BUILD_OPENCS)
+ENDIF (BUILD_OPENMW OR BUILD_OPENCS OR BUILD_OPENMW_VR)
 # End of tes3mp change
 
 add_component_dir (to_utf8
@@ -95,7 +95,7 @@ add_component_dir (esm
 # Start of tes3mp change
 #
 # Don't include certain components in server-only builds
-IF (BUILD_OPENMW OR BUILD_OPENCS)
+IF (BUILD_OPENMW OR BUILD_OPENCS OR BUILD_OPENMW_VR)
 # End of tes3mp change
 add_component_dir (esmterrain
     storage
@@ -103,11 +103,11 @@ add_component_dir (esmterrain
 # Start of tes3mp change
 #
 # Don't include certain components in server-only builds
-ENDIF (BUILD_OPENMW OR BUILD_OPENCS)
+ENDIF (BUILD_OPENMW OR BUILD_OPENCS OR BUILD_OPENMW_VR)
 # End of tes3mp change
 
 add_component_dir (misc
-    constants utf8stream stringops resourcehelpers rng messageformatparser weakcache thread
+    constants utf8stream stringops resourcehelpers rng messageformatparser weakcache stereo callbackmanager thread
     )
 
 add_component_dir (debug
@@ -143,7 +143,7 @@ add_component_dir (translation
 # Start of tes3mp addition
 #
 # Don't include certain components in server-only builds
-IF (BUILD_OPENMW OR BUILD_OPENCS)
+IF (BUILD_OPENMW OR BUILD_OPENCS OR BUILD_OPENMW_VR)
 # End of tes3mp change
 add_component_dir (terrain
     storage world buffercache defs terraingrid material terraindrawable texturemanager chunkmanager compositemaprenderer quadtreeworld quadtreenode viewdata cellborder
@@ -158,7 +158,7 @@ add_component_dir (myguiplatform
     )
 
 add_component_dir (widgets
-    box fontwrapper imagebutton tags list numericeditbox sharedstatebutton windowcaption widgets
+    box fontwrapper imagebutton tags list numericeditbox sharedstatebutton virtualkeyboardmanager windowcaption widgets
     )
 
 add_component_dir (fontloader
@@ -171,7 +171,7 @@ add_component_dir (sdlutil
 # Start of tes3mp change
 #
 # Don't include certain components in server-only builds
-ENDIF (BUILD_OPENMW OR BUILD_OPENCS)
+ENDIF (BUILD_OPENMW OR BUILD_OPENCS OR BUILD_OPENMW_VR)
 # End of tes3mp change
 
 add_component_dir (version
@@ -255,7 +255,7 @@ add_component_dir (fallback
 #
 # Don't require the crashcatcher when building on platforms other than Windows or when building only the server,
 # as it causes compilation problems
-IF (BUILD_OPENMW OR BUILD_OPENCS)
+IF (BUILD_OPENMW OR BUILD_OPENCS OR BUILD_OPENMW_VR)
     if(WIN32)
         add_component_dir (crashcatcher
             windows_crashcatcher
@@ -263,13 +263,13 @@ IF (BUILD_OPENMW OR BUILD_OPENCS)
             windows_crashshm
         )
     endif()
-ENDIF (BUILD_OPENMW OR BUILD_OPENCS)
+ENDIF (BUILD_OPENMW OR BUILD_OPENCS OR BUILD_OPENMW_VR)
 # End of tes3mp change (major)
 
 # Start of tes3mp change (major)
 #
 # Don't require the DetourNavigator when building the server
-IF (BUILD_OPENMW OR BUILD_OPENCS)
+IF (BUILD_OPENMW OR BUILD_OPENCS OR BUILD_OPENMW_VR)
     add_component_dir(detournavigator
             debug
             makenavmesh
@@ -292,7 +292,7 @@ IF (BUILD_OPENMW OR BUILD_OPENCS)
             oscillatingrecastmeshobject
             offmeshconnectionsmanager
             )
-ENDIF (BUILD_OPENMW OR BUILD_OPENCS)
+ENDIF (BUILD_OPENMW OR BUILD_OPENCS OR BUILD_OPENMW_VR)
 # End of tes3mp change (major)
 
 set (ESM_UI ${CMAKE_SOURCE_DIR}/files/ui/contentselector.ui
@@ -301,7 +301,7 @@ set (ESM_UI ${CMAKE_SOURCE_DIR}/files/ui/contentselector.ui
 # Start of tes3mp change (major)
 #
 # Don't require Qt when building the server
-IF (BUILD_OPENMW OR BUILD_OPENCS)
+IF (BUILD_OPENMW OR BUILD_OPENCS OR BUILD_OPENMW_VR)
 # End of tes3mp change
 if (USE_QT)
     add_component_qt_dir (contentselector
@@ -330,7 +330,7 @@ endif()
 # Start of tes3mp change (major)
 #
 # Don't require Qt when building the server
-ENDIF (BUILD_OPENMW OR BUILD_OPENCS)
+ENDIF (BUILD_OPENMW OR BUILD_OPENCS OR BUILD_OPENMW_VR)
 # End of tes3mp change
 
 if (CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
@@ -346,7 +346,7 @@ add_library(components STATIC ${COMPONENT_FILES} ${MOC_SRCS} ${ESM_UI_HDR})
 # Start of tes3mp change (major)
 #
 # Don't require graphics related libs when building the server
-IF (BUILD_OPENMW OR BUILD_OPENCS)
+IF (BUILD_OPENMW OR BUILD_OPENCS OR BUILD_OPENMW_VR)
 target_link_libraries(components
     # CMake's built-in OSG finder does not use pkgconfig, so we have to
     # manually ensure the order is correct for inter-library dependencies.
@@ -368,7 +368,7 @@ target_link_libraries(components
     ${MyGUI_LIBRARIES}
     LZ4::LZ4
     )
-ENDIF (BUILD_OPENMW OR BUILD_OPENCS)
+ENDIF (BUILD_OPENMW OR BUILD_OPENCS OR BUILD_OPENMW_VR)
 target_link_libraries(components
     ${Boost_SYSTEM_LIBRARY}
     ${Boost_FILESYSTEM_LIBRARY}
@@ -380,7 +380,7 @@ target_link_libraries(components
 # Start of tes3mp change (major)
 #
 # Don't require RecastNavigation nor Bullet when building the server
-IF (BUILD_OPENMW OR BUILD_OPENCS)
+IF (BUILD_OPENMW OR BUILD_OPENCS OR BUILD_OPENMW_VR)
     target_link_libraries(components
             RecastNavigation::DebugUtils
             RecastNavigation::Detour
@@ -388,7 +388,7 @@ IF (BUILD_OPENMW OR BUILD_OPENCS)
 
             ${BULLET_LIBRARIES}
             )
-ENDIF (BUILD_OPENMW OR BUILD_OPENCS)
+ENDIF (BUILD_OPENMW OR BUILD_OPENCS OR BUILD_OPENMW_VR)
 target_link_libraries(components Base64)
 # End of tes3mp change (major)
 
@@ -401,7 +401,7 @@ endif()
 # Start of tes3mp change (major)
 #
 # Don't require Qt when building the server
-IF (BUILD_OPENMW OR BUILD_OPENCS)
+IF (BUILD_OPENMW OR BUILD_OPENCS OR BUILD_OPENMW_VR)
 # End of tes3mp change
 if (USE_QT)
     target_link_libraries(components Qt5::Widgets Qt5::Core)
@@ -409,7 +409,7 @@ endif()
 # Start of tes3mp change (major)
 #
 # Don't require Qt when building the server
-ENDIF (BUILD_OPENMW OR BUILD_OPENCS)
+ENDIF (BUILD_OPENMW OR BUILD_OPENCS OR BUILD_OPENMW_VR)
 # End of tes3mp change
 
 if (GIT_CHECKOUT)

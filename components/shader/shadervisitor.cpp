@@ -473,6 +473,7 @@ namespace Shader
         }
 
         defineMap["parallax"] = reqs.mNormalHeight ? "1" : "0";
+        defineMap["geometryShader"] = "1";
 
         writableStateSet->addUniform(new osg::Uniform("colorMode", reqs.mColorMode));
         addedState->addUniform("colorMode");

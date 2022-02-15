@@ -68,6 +68,7 @@ namespace MWGui
     {
         public:
             MessageBox (MessageBoxManager& parMessageBoxManager, const std::string& message);
+            ~MessageBox();
             void setMessage (const std::string& message);
             int getHeight ();
             void update (int height);

@@ -1,10 +1,12 @@
-TES3MP
-======
+TES3MP VR
+=========
 
 Copyright (c) 2008-2015, OpenMW Team  
 Copyright (c) 2016-2022, David Cernat & Stanislav Zhukov
 
 TES3MP is a project adding multiplayer functionality to [OpenMW](https://github.com/OpenMW/openmw), an open-source game engine that supports playing "The Elder Scrolls III: Morrowind" by Bethesda Softworks.
+
+When it's combined with Mads Buvik Sandvei's [fork adding VR support to OpenMW](https://gitlab.com/madsbuvi/openmw), the result is TES3MP VR.
 
 * TES3MP version: 0.8.0
 * OpenMW version: 0.47.0

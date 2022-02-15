@@ -7,6 +7,7 @@
 #include <map>
 #include <set>
 #include <deque>
+#include <tuple>
 
 #include <components/esm/cellid.hpp>
 
@@ -33,7 +34,9 @@ namespace osg
     class Matrixf;
     class Quat;
     class Image;
+    class Node;
     class Stats;
+    class Transform;
 }
 
 namespace Loading
@@ -72,6 +75,8 @@ namespace MWPhysics
 namespace MWRender
 {
     class Animation;
+    class RenderingManager;
+    struct RayResult;
 }
 
 namespace MWMechanics
@@ -94,6 +99,11 @@ namespace MWWorld
     class RefData;
 
     typedef std::vector<std::pair<MWWorld::Ptr,MWMechanics::Movement> > PtrMovementList;
+}
+
+namespace MWVR
+{
+    class UserPointer;
 }
 
 namespace MWBase
@@ -155,6 +165,8 @@ namespace MWBase
             virtual MWWorld::Player& getPlayer() = 0;
             virtual MWWorld::Ptr getPlayerPtr() = 0;
             virtual MWWorld::ConstPtr getPlayerConstPtr() const = 0;
+
+            virtual MWRender::RenderingManager& getRenderingManager() = 0;
 
             virtual const MWWorld::ESMStore& getStore() const = 0;
 
@@ -385,6 +397,8 @@ namespace MWBase
 
             virtual float getMaxActivationDistance() = 0;
 
+            virtual float getActivationDistancePlusTelekinesis() = 0;
+
             /// Returns a pointer to the object the provided object would hit (if within the
             /// specified distance), and the point where the hit occurs. This will attempt to
             /// use the "Head" node, or alternatively the "Bip01 Head" node as a basis.
@@ -561,6 +575,12 @@ namespace MWBase
             /// @param object
             /// @param cursor X (relative 0-1)
             /// @param cursor Y (relative 0-1)
+            /// @param number of objects to place
+
+            virtual MWWorld::Ptr placeObject (const MWWorld::ConstPtr& object, const MWRender::RayResult& ray, int amount) = 0;
+            ///< copy and place an object into the gameworld based on the given intersection
+            /// @param object
+            /// @param world position to place object
             /// @param number of objects to place
 
             virtual MWWorld::Ptr dropObjectOnGround (const MWWorld::Ptr& actor, const MWWorld::ConstPtr& object, int amount) = 0;
@@ -857,6 +877,18 @@ namespace MWBase
 
             virtual bool hasCollisionWithDoor(const MWWorld::ConstPtr& door, const osg::Vec3f& position, const osg::Vec3f& destination) const = 0;
 
+            /// @result pointer to the object and/or node the given node is currently pointing at
+            /// @Return distance to the target object, or -1 if no object was targeted / in range
+            virtual float getTargetObject(MWRender::RayResult& result, const osg::Vec3f& origin, const osg::Quat& orientation, float maxDistance, bool ignorePlayer) = 0;
+
+#ifdef USE_OPENXR
+            virtual MWVR::UserPointer& getUserPointer() = 0;
+            virtual MWWorld::Ptr getPointerTarget() = 0;
+#endif
+
+            /// @Return ESM::Weapon::Type enum describing the type of weapon currently drawn by the player.
+            virtual int getActiveWeaponType(void) = 0;
+			
             virtual bool isAreaOccupiedByOtherActor(const osg::Vec3f& position, const float radius, const MWWorld::ConstPtr& ignore) const = 0;
 
             virtual void reportStats(unsigned int frameNumber, osg::Stats& stats) const = 0;

@@ -48,6 +48,7 @@
 #include <components/resource/resourcesystem.hpp>
 
 #include <components/sceneutil/positionattitudetransform.hpp>
+#include <components/sceneutil/visitor.hpp>
 
 #include <components/detournavigator/debug.hpp>
 #include <components/detournavigator/navigatorimpl.hpp>
@@ -96,6 +97,14 @@
 
 #include "contentloader.hpp"
 #include "esmloader.hpp"
+
+#ifdef USE_OPENXR
+#include "../mwvr/vranimation.hpp"
+#include "../mwvr/vrenvironment.hpp"
+#include "../mwvr/vrinputmanager.hpp"
+#include "../mwvr/vrpointer.hpp"
+#include "../mwvr/vrutil.hpp"
+#endif
 
 namespace
 {
@@ -160,6 +169,7 @@ namespace MWWorld
     World::World (
         osgViewer::Viewer* viewer,
         osg::ref_ptr<osg::Group> rootNode,
+        std::unique_ptr<MWRender::Camera> camera,
         Resource::ResourceSystem* resourceSystem, SceneUtil::WorkQueue* workQueue,
         const Files::Collections& fileCollections,
         const std::vector<std::string>& contentFiles,
@@ -221,7 +231,7 @@ namespace MWWorld
             mNavigator.reset(new DetourNavigator::NavigatorStub());
         }
 
-        mRendering.reset(new MWRender::RenderingManager(viewer, rootNode, resourceSystem, workQueue, resourcePath, *mNavigator));
+        mRendering.reset(new MWRender::RenderingManager(viewer, rootNode, std::move(camera), resourceSystem, workQueue, resourcePath, *mNavigator));
         mProjectileManager.reset(new ProjectileManager(mRendering->getLightRoot(), resourceSystem, mRendering.get(), mPhysics.get()));
         mRendering->preloadCommonAssets();
 
@@ -612,6 +622,7 @@ namespace MWWorld
 
     void World::useDeathCamera()
     {
+#ifndef USE_OPENXR
         if(mRendering->getCamera()->isVanityOrPreviewModeEnabled() )
         {
             mRendering->getCamera()->togglePreviewMode(false);
@@ -619,6 +630,7 @@ namespace MWWorld
         }
         if(mRendering->getCamera()->isFirstPerson())
             mRendering->getCamera()->toggleViewMode(true);
+#endif
     }
 
     MWWorld::Player& World::getPlayer()
@@ -1112,6 +1124,12 @@ namespace MWWorld
         mWorldScene->changeToInteriorCell(cellName, position, adjustPlayerPos, changeEvent);
         addContainerScripts(getPlayerPtr(), getPlayerPtr().getCell());
         mRendering->getCamera()->instantTransition();
+
+#ifdef USE_OPENXR
+        auto* xrInput = MWVR::Environment::get().getInputManager();
+        if (xrInput)
+            xrInput->requestRecenter(false);
+#endif
     }
 
     void World::changeToExteriorCell (const ESM::Position& position, bool adjustPlayerPos, bool changeEvent)
@@ -1129,6 +1147,12 @@ namespace MWWorld
         mWorldScene->changeToExteriorCell(position, adjustPlayerPos, changeEvent);
         addContainerScripts(getPlayerPtr(), getPlayerPtr().getCell());
         mRendering->getCamera()->instantTransition();
+
+#ifdef USE_OPENXR
+        auto* xrInput = MWVR::Environment::get().getInputManager();
+        if (xrInput)
+            xrInput->requestRecenter(false);
+#endif
     }
 
     void World::changeToCell (const ESM::CellId& cellId, const ESM::Position& position, bool adjustPlayerPos, bool changeEvent)
@@ -1160,6 +1184,10 @@ namespace MWWorld
 
     MWWorld::Ptr World::getFacedObject()
     {
+#ifdef USE_OPENXR
+        return getPointerTarget();
+#endif
+
         MWWorld::Ptr facedObject;
 
         if (MWBase::Environment::get().getWindowManager()->isGuiMode() &&
@@ -1211,15 +1239,25 @@ namespace MWWorld
         // the origin of hitbox is an actor's front, not center
         distance += halfExtents.y();
 
-        // special cased for better aiming with the camera
-        // if we do not hit anything, will use the default approach as fallback
         if (ptr == getPlayerPtr())
         {
+#ifdef USE_OPENXR
+            // Use current aim of weapon to impact
+            osg::Matrix worldMatrix = MWVR::Environment::get().getPlayerAnimation()->getWeaponTransformMatrix();
+            
+            auto result = mPhysics->getHitContact(ptr, worldMatrix.getTrans(), worldMatrix.getRotate(), distance, targets);
+            if (!result.first.isEmpty())
+                Log(Debug::Verbose) << "Hit: " << result.first.getTypeName();
+            return result;
+#else
+            // special cased for better aiming with the camera
+            // if we do not hit anything, will use the default approach as fallback
             osg::Vec3f pos = getActorHeadTransform(ptr).getTrans();
 
             std::pair<MWWorld::Ptr,osg::Vec3f> result = mPhysics->getHitContact(ptr, pos, rot, distance, targets);
             if(!result.first.isEmpty())
                 return std::make_pair(result.first, result.second);
+#endif
         }
 
         osg::Vec3f pos = ptr.getRefData().getPosition().asVec3();
@@ -2264,7 +2302,7 @@ namespace MWWorld
         const float camDist = mRendering->getCamera()->getCameraDistance();
         maxDistance += camDist;
         MWWorld::Ptr facedObject;
-        MWRender::RenderingManager::RayResult rayToObject;
+        MWRender::RayResult rayToObject;
 
         if (MWBase::Environment::get().getWindowManager()->isGuiMode())
         {
@@ -2494,7 +2532,7 @@ namespace MWWorld
     {
         const float maxDist = 200.f;
 
-        MWRender::RenderingManager::RayResult result = mRendering->castCameraToViewportRay(cursorX, cursorY, maxDist, true, true);
+        MWRender::RayResult result = mRendering->castCameraToViewportRay(cursorX, cursorY, maxDist, true, true);
 
         CellStore* cell = getPlayerPtr().getCell();
 
@@ -2521,7 +2559,7 @@ namespace MWWorld
     bool World::canPlaceObject(float cursorX, float cursorY)
     {
         const float maxDist = 200.f;
-        MWRender::RenderingManager::RayResult result = mRendering->castCameraToViewportRay(cursorX, cursorY, maxDist, true, true);
+        MWRender::RayResult result = mRendering->castCameraToViewportRay(cursorX, cursorY, maxDist, true, true);
 
         if (result.mHit)
         {
@@ -2607,7 +2645,7 @@ namespace MWWorld
 
         float len = 1000000.0;
 
-        MWRender::RenderingManager::RayResult result = mRendering->castRay(orig, orig+dir*len, true, true);
+        MWRender::RayResult result = mRendering->castRay(orig, orig+dir*len, true, true);
         if (result.mHit)
             pos.pos[2] = result.mHitPointWorld.z();
 
@@ -2770,7 +2808,7 @@ namespace MWWorld
         if(!mRendering->getCamera()->isVanityOrPreviewModeEnabled())
             return false;
 
-        mRendering->getCamera()->rotateCamera(rot[0], rot[2], true);
+        mRendering->getCamera()->rotateCamera(rot[0], 0.f, rot[2], true);
         return true;
     }
 
@@ -3556,8 +3594,14 @@ namespace MWWorld
 
         // for player we can take faced object first
         MWWorld::Ptr target;
+#ifdef USE_OPENXR
+        if (actor == MWMechanics::getPlayer())
+            target = MWVR::Util::getTouchTarget().first;
+#else
+        // Does not apply to VR
         if (actor == MWMechanics::getPlayer())
             target = getFacedObject();
+#endif
 
         // if the faced object can not be activated, do not use it
         if (!target.isEmpty() && !target.getClass().hasToolTip(target))
@@ -3594,11 +3638,22 @@ namespace MWWorld
                 osg::Quat orient = osg::Quat(actor.getRefData().getPosition().rot[0], osg::Vec3f(-1,0,0))
                         * osg::Quat(actor.getRefData().getPosition().rot[2], osg::Vec3f(0,0,-1));
 
+#ifdef USE_OPENXR
+                if (actor == MWMechanics::getPlayer())
+                {
+                    osg::Matrix worldMatrix = MWVR::Environment::get().getPlayerAnimation()->getWeaponTransformMatrix();
+                    origin = worldMatrix.getTrans();
+                    orient = worldMatrix.getRotate();
+                }
+#endif
+                Log(Debug::Verbose) << "Origin: " << origin;
+                Log(Debug::Verbose) << "Orient: " << orient;
+
                 osg::Vec3f direction = orient * osg::Vec3f(0,1,0);
                 float distance = getMaxActivationDistance();
                 osg::Vec3f dest = origin + direction * distance;
 
-                MWRender::RenderingManager::RayResult result2 = mRendering->castRay(origin, dest, true, true);
+                MWRender::RayResult result2 = mRendering->castRay(origin, dest, true, true);
 
                 float dist1 = std::numeric_limits<float>::max();
                 float dist2 = std::numeric_limits<float>::max();
@@ -4084,6 +4139,11 @@ namespace MWWorld
         return mPlayer->getConstPlayer();
     }
 
+    MWRender::RenderingManager& World::getRenderingManager()
+    {
+        return *mRendering;
+    }
+
     void World::updateDialogueGlobals()
     {
         MWWorld::Ptr player = getPlayerPtr();
@@ -4506,6 +4566,96 @@ namespace MWWorld
         return btRayAabb(localFrom, localTo, aabbMin, aabbMax, hitDistance, hitNormal);
     }
 
+    float World::getTargetObject(MWRender::RayResult& result, const osg::Vec3f& origin, const osg::Quat& orientation, float maxDistance, bool ignorePlayer)
+    {
+        osg::Vec3f direction = orientation * osg::Vec3f(0, 1, 0);
+        direction.normalize();
+        osg::Vec3f end = origin + direction * maxDistance;
+        result = mRendering->castRay(origin, end, ignorePlayer);
+        if(!result.mHit)
+            return 0.f;
+
+        MWWorld::Ptr facedObject = result.mHitObject;
+        if (facedObject.isEmpty() && result.mHitRefnum.hasContentFile())
+        {
+            for (CellStore* cellstore : mWorldScene->getActiveCells())
+            {
+                facedObject = cellstore->searchViaRefNum(result.mHitRefnum);
+                if (!facedObject.isEmpty()) break;
+            }
+        }
+        result.mHitObject = facedObject;
+
+        return result.mRatio * maxDistance;
+    }
+
+#ifdef USE_OPENXR
+    MWVR::UserPointer& World::getUserPointer()
+    {
+        return mRendering->userPointer();
+    }
+
+    MWWorld::Ptr World::getPointerTarget()
+    {
+        return getUserPointer().getPointerTarget().mHitObject;
+    }
+#endif
+
+    MWWorld::Ptr World::placeObject(const MWWorld::ConstPtr& object, const MWRender::RayResult& ray, int amount)
+    {
+        const float maxDist = 200.f;
+
+        CellStore* cell = getPlayerPtr().getCell();
+
+        ESM::Position pos = getPlayerPtr().getRefData().getPosition();
+
+        if (ray.mHit && !ray.mHitObject.isEmpty())
+        {
+            pos.pos[0] = ray.mHitPointWorld.x();
+            pos.pos[1] = ray.mHitPointWorld.y();
+            pos.pos[2] = ray.mHitPointWorld.z();
+        }
+        // We want only the Z part of the player's rotation
+        // TODO: Use the hand to orient in VR?
+        pos.rot[0] = 0;
+        pos.rot[1] = 0;
+
+        // copy the object and set its count
+        MWWorld::Ptr dropped = copyObjectToCell(object, cell, pos, amount, true);
+
+        // only the player place items in the world, so no need to check actor
+        PCDropped(dropped);
+
+        return dropped;
+    }
+	
+    int World::getActiveWeaponType(void)
+    {
+        if (mPlayer)
+        {
+            if (mPlayer->getDrawState() == MWMechanics::DrawState_Nothing)
+                return ESM::Weapon::Type::None;
+
+            if (mPlayer->getDrawState() == MWMechanics::DrawState_Spell)
+                return ESM::Weapon::Type::Spell;
+
+            MWWorld::Ptr ptr = mPlayer->getPlayer();
+            const MWWorld::InventoryStore& invStore = ptr.getClass().getInventoryStore(ptr);
+            MWWorld::ConstContainerStoreIterator it = invStore.getSlot(MWWorld::InventoryStore::Slot_CarriedRight);
+            if (it != invStore.end())
+            {
+                if (it->getTypeName() == typeid(ESM::Weapon).name())
+                    return ESM::Weapon::Type(it->get<ESM::Weapon>()->mBase->mData.mType);
+                if (it->getTypeName() == typeid(ESM::Lockpick).name())
+                    return ESM::Weapon::Type::PickProbe;
+                if (it->getTypeName() == typeid(ESM::Probe).name())
+                    return ESM::Weapon::Type::PickProbe;
+            }
+            return ESM::Weapon::Type::HandToHand;
+        }
+        return ESM::Weapon::Type::None;
+    }
+	
     bool World::isAreaOccupiedByOtherActor(const osg::Vec3f& position, const float radius, const MWWorld::ConstPtr& ignore) const
     {
         return mPhysics->isAreaOccupiedByOtherActor(position, radius, ignore);

@@ -5,6 +5,13 @@
 #include <MyGUI_Gui.h>
 #include <MyGUI_TextBox.h>
 #include <MyGUI_Window.h>
+#include <MyGUI_OverlappedLayer.h>
+#include <MyGUI_SharedLayer.h>
+
+#ifdef USE_OPENXR
+#include "../mwvr/vrgui.hpp"
+#include "../mwvr/vrenvironment.hpp"
+#endif
 
 namespace MWGui
 {
@@ -45,9 +52,21 @@ namespace MWGui
         mMainWidget->setCoord(x,y,w,h);
     }
 
+    void Layout::setCoordf(float x, float y, float w, float h)
+    {
+        mMainWidget->setRealCoord(x, y, w, h);
+    }
+
     void Layout::setVisible(bool b)
     {
         mMainWidget->setVisible(b);
+#ifdef USE_OPENXR
+        auto* vrGUIManager = MWVR::Environment::get().getGUIManager();
+        if (!vrGUIManager)
+            // May end up here before before rendering has been fully set up
+            return;
+        vrGUIManager->setVisible(this, b);
+#endif
     }
 
     void Layout::setText(const std::string &name, const std::string &caption)

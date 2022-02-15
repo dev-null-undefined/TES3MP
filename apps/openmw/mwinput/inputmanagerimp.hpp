@@ -95,14 +95,16 @@ namespace MWInput
         void executeAction(int action) override;
 
         bool controlsDisabled() override { return mControlsDisabled; }
+        void applyHapticsLeftHand(float intensity) override {};
+        void applyHapticsRightHand(float intensity) override {};
 
-    private:
+    protected:
         void convertMousePosForMyGUI(int& x, int& y);
 
         void handleGuiArrowKey(int action);
 
-        void quickKey(int index);
-        void showQuickKeysMenu();
+        //void quickKey(int index);
+        //void showQuickKeysMenu();
 
         void loadKeyDefaults(bool force = false);
         void loadControllerDefaults(bool force = false);

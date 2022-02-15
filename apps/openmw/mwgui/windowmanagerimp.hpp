@@ -81,11 +81,17 @@ namespace osgMyGUI
 namespace Gui
 {
     class FontLoader;
+    class VirtualKeyboardManager;
 }
 
 namespace MWRender
 {
     class LocalMap;
+}
+
+namespace MWVR
+{
+    class VrMetaMenu;
 }
 
 namespace MWGui
@@ -147,6 +153,7 @@ namespace MWGui
     /// @note This method will block until the video finishes playing
     /// (and will continually update the window while doing so)
     void playVideo(const std::string& name, bool allowSkipping) override;
+    bool isPlayingVideo(void) const override;
 
     /// Warning: do not use MyGUI::InputManager::setKeyFocusWidget directly. Instead use this.
     void setKeyFocusWidget (MyGUI::Widget* widget) override;
@@ -171,7 +178,7 @@ namespace MWGui
 
     void forceHide(MWGui::GuiWindow wnd) override;
     void unsetForceHide(MWGui::GuiWindow wnd) override;
-
+    DragAndDrop& getDragAndDrop(void) override;
     /// Disallow all inventory mode windows
     void disallowAll() override;
 
@@ -478,10 +485,12 @@ namespace MWGui
     bool injectKeyPress(MyGUI::KeyCode key, unsigned int text, bool repeat=false) override;
     bool injectKeyRelease(MyGUI::KeyCode key) override;
 
+    void viewerTraversals(bool updateWindowManager) override;
   private:
     unsigned int mOldUpdateMask; unsigned int mOldCullMask;
 
     const MWWorld::ESMStore* mStore;
+    bool mVRMode;
     Resource::ResourceSystem* mResourceSystem;
     osg::ref_ptr<SceneUtil::WorkQueue> mWorkQueue;
 
@@ -535,6 +544,9 @@ namespace MWGui
     ScreenFader* mScreenFader;
     DebugWindow* mDebugWindow;
     JailScreen* mJailScreen;
+    MWVR::VrMetaMenu* mVrMetaMenu;
+
+    Gui::VirtualKeyboardManager* mVirtualKeyboardManager;
 
     /*
         Start of tes3mp addition
@@ -562,6 +574,7 @@ namespace MWGui
     bool mHudEnabled;
     bool mCursorVisible;
     bool mCursorActive;
+    bool mVideoEnabled;
 
     int mPlayerBounty;
 

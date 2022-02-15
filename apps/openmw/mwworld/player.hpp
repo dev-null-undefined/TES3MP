@@ -93,6 +93,9 @@ namespace MWWorld
         /// Activate the object under the crosshair, if any
         void activate();
 
+        /// Activate a specific object
+        void activate(MWWorld::Ptr obj);
+
         bool getAutoMove() const;
         void setAutoMove (bool enable);
 
@@ -119,6 +122,9 @@ namespace MWWorld
 
         ///Checks all nearby actors to see if anyone has an aipackage against you
         bool isInCombat();
+
+        ///Checks if the player is currently in a state where he cannot act
+        bool isDisabled();
 
         bool enemiesNearby();
 

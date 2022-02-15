@@ -679,3 +679,9 @@ AND AUTHORS OF THAT COVERED WORK FOR ANY DAMAEGS, DEMANDS, CLAIMS, LOSSES,
 CAUSES OF ACTION, LAWSUITS, JUDGMENTS EXPENSES (INCLUDING WITHOUT LIMITATION
 REASONABLE ATTORNEYS' FEES AND EXPENSES) OR ANY OTHER LIABLITY ARISING FROM,
 RELATED TO OR IN CONNECTION WITH YOUR ASSUMPTIONS OF LIABILITY.
+
+-----------------------------------------------------------------------------
+-----------------------------------------------------------------------------
+On Windows releases, this project bundles the OpenXR loader binary, which is 
+licensed under the Apache 2.0 license. For license details, see: 
+https://github.com/KhronosGroup/OpenXR-SDK/blob/master/LICENSE

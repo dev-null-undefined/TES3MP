@@ -7,6 +7,8 @@
 
 #include "../mwbase/world.hpp"
 
+#include "../mwrender/renderingmanager.hpp"
+
 #include "ptr.hpp"
 #include "scene.hpp"
 #include "esmstore.hpp"
@@ -185,7 +187,7 @@ namespace MWWorld
                 const std::vector<std::string>& content, const std::vector<std::string>& groundcover, ContentLoader& contentLoader);
 
             float feetToGameUnits(float feet);
-            float getActivationDistancePlusTelekinesis();
+            float getActivationDistancePlusTelekinesis() override;
 
             MWWorld::ConstPtr getClosestMarker( const MWWorld::Ptr &ptr, const std::string &id );
             MWWorld::ConstPtr getClosestMarkerFromExteriorPosition( const osg::Vec3f& worldPos, const std::string &id );
@@ -198,6 +200,7 @@ namespace MWWorld
             World (
                 osgViewer::Viewer* viewer,
                 osg::ref_ptr<osg::Group> rootNode,
+                std::unique_ptr<MWRender::Camera> camera,
                 Resource::ResourceSystem* resourceSystem, SceneUtil::WorkQueue* workQueue,
                 const Files::Collections& fileCollections,
                 const std::vector<std::string>& contentFiles,
@@ -246,6 +249,8 @@ namespace MWWorld
             Player& getPlayer() override;
             MWWorld::Ptr getPlayerPtr() override;
             MWWorld::ConstPtr getPlayerConstPtr() const override;
+
+            MWRender::RenderingManager& getRenderingManager() override;
 
             const MWWorld::ESMStore& getStore() const override;
 
@@ -920,6 +925,24 @@ namespace MWWorld
 
             bool hasCollisionWithDoor(const MWWorld::ConstPtr& door, const osg::Vec3f& position, const osg::Vec3f& destination) const override;
 
+            /// Intersects the scene from the origin, in the specified orientation and distance, storing the %result in the result structure.
+            /// @Return distance to the target object, or -1 if no object was targeted / in range
+            float getTargetObject(MWRender::RayResult& result, const osg::Vec3f& origin, const osg::Quat& orientation, float maxDistance, bool ignorePlayer) override;
+
+#ifdef USE_OPENXR
+            MWVR::UserPointer& getUserPointer() override;
+            MWWorld::Ptr getPointerTarget() override;
+#endif
+
+            MWWorld::Ptr placeObject(const MWWorld::ConstPtr& object, const MWRender::RayResult& ray, int amount) override;
+            ///< copy and place an object into the gameworld based on the given intersection
+            /// @param object
+            /// @param world position to place object
+            /// @param number of objects to place
+
+            /// @Return ESM::Weapon::Type enum describing the type of weapon currently drawn by the player.
+            int getActiveWeaponType(void) override;
+			
             bool isAreaOccupiedByOtherActor(const osg::Vec3f& position, const float radius, const MWWorld::ConstPtr& ignore) const override;
 
             void reportStats(unsigned int frameNumber, osg::Stats& stats) const override;

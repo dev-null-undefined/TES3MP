@@ -22,6 +22,10 @@ namespace MWGui
             MyGUI::TabControl* mSettingsTab;
             MyGUI::Button* mOkButton;
 
+            // VR
+            MyGUI::ComboBox* mVRLeftHudPosition;
+            MyGUI::ComboBox* mVRMirrorTextureEye;
+
             // graphics
             MyGUI::ListBox* mResolutionList;
             MyGUI::Button* mFullscreenButton;
@@ -52,6 +56,9 @@ namespace MWGui
             void onResolutionAccept();
             void onResolutionCancel();
             void highlightCurrentResolution();
+
+            void onVRMirrorTextureEyeChanged(MyGUI::ComboBox* _sender, size_t pos);
+            void onVRLeftHudPositionChanged(MyGUI::ComboBox* _sender, size_t pos);
 
             void onWaterTextureSizeChanged(MyGUI::ComboBox* _sender, size_t pos);
             void onWaterReflectionDetailChanged(MyGUI::ComboBox* _sender, size_t pos);

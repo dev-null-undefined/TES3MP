@@ -5,6 +5,7 @@
 #include <components/misc/mathutil.hpp>
 #include <components/sceneutil/positionattitudetransform.hpp>
 #include <components/settings/settings.hpp>
+#include <components/debug/debuglog.hpp>
 
 #include "../mwbase/environment.hpp"
 #include "../mwbase/windowmanager.hpp"
@@ -126,6 +127,16 @@ namespace MWRender
         return position;
     }
 
+    osg::Camera* Camera::getOsgCamera()
+    {
+        return mCamera;
+    }
+
+    void Camera::updateCamera()
+    {
+        updateCamera(mCamera);
+    }
+    
     osg::Vec3d Camera::getFocalPointOffset() const
     {
         osg::Vec3d offset(0, 0, 10.f);
@@ -147,12 +158,19 @@ namespace MWRender
         camera = focal + offset;
     }
 
+    void Camera::getOrientation(osg::Quat& orientation) const
+    {
+        orientation = osg::Quat(mRoll, osg::Vec3d(0, 1, 0)) * osg::Quat(mPitch, osg::Vec3d(1, 0, 0)) * osg::Quat(mYaw, osg::Vec3d(0, 0, 1));
+    }
+
     void Camera::updateCamera(osg::Camera *cam)
     {
         osg::Vec3d focal, position;
         getPosition(focal, position);
 
-        osg::Quat orient = osg::Quat(mRoll, osg::Vec3d(0, 1, 0)) * osg::Quat(mPitch, osg::Vec3d(1, 0, 0)) * osg::Quat(mYaw, osg::Vec3d(0, 0, 1));
+        osg::Quat orient;
+        getOrientation(orient);
+
         osg::Vec3d forward = orient * osg::Vec3d(0,1,0);
         osg::Vec3d up = orient * osg::Vec3d(0,0,1);
 
@@ -185,8 +203,10 @@ namespace MWRender
             toggleViewMode();
     }
 
-    void Camera::rotateCamera(float pitch, float yaw, bool adjust)
+    void Camera::rotateCamera(float pitch, float roll, float yaw, bool adjust)
     {
+        (void)roll;
+
         if (adjust)
         {
             pitch += getPitch();
@@ -223,7 +243,7 @@ namespace MWRender
                           && (mFirstPersonView || mShowCrosshairInThirdPersonMode));
 
         if(mMode == Mode::Vanity)
-            rotateCamera(0.f, osg::DegreesToRadians(3.f * duration), true);
+            rotateCamera(0.f, 0.f, osg::DegreesToRadians(3.f * duration), true);
 
         if (isFirstPerson() && mHeadBobbingEnabled)
             updateHeadBobbing(duration);
@@ -503,7 +523,7 @@ namespace MWRender
             else
                 mHeightScale = 1.f;
         }
-        rotateCamera(getPitch(), getYaw(), false);
+        rotateCamera(getPitch(), 0.f, getYaw(), false);
     }
 
     void Camera::applyDeferredPreviewRotationToPlayer(float dt)

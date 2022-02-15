@@ -4,6 +4,7 @@
 #include <MyGUI_RenderManager.h>
 
 #include <osg/ref_ptr>
+#include <set>
 
 #include "myguicompat.h"
 
@@ -29,29 +30,43 @@ namespace osgMyGUI
 {
 
 class Drawable;
+class GUICamera;
 
-class RenderManager : public MyGUI::RenderManager, public MyGUI::IRenderTarget
+class StateInjectableRenderTarget : public MyGUI::IRenderTarget
+{
+public:
+    StateInjectableRenderTarget() = default;
+    ~StateInjectableRenderTarget() = default;
+
+    /** specify a StateSet to inject for rendering. The StateSet will be used by future doRender calls until you reset it to nullptr again. */
+    void setInjectState(osg::StateSet* stateSet);
+
+protected:
+    osg::StateSet* mInjectState{ nullptr };
+};
+
+class RenderManager : public MyGUI::RenderManager
 {
     osg::ref_ptr<osgViewer::Viewer> mViewer;
     osg::ref_ptr<osg::Group> mSceneRoot;
-    osg::ref_ptr<Drawable> mDrawable;
+    osg::ref_ptr<GUICamera> mGuiCamera;
+    std::set<GUICamera*> mGuiCameras;
     Resource::ImageManager* mImageManager;
-
     MyGUI::IntSize mViewSize;
-    bool mUpdate;
+
     MyGUI::VertexColourType mVertexFormat;
     MyGUI::RenderTargetInfo mInfo;
+
 
     typedef std::map<std::string, MyGUI::ITexture*> MapTexture;
     MapTexture mTextures;
 
     bool mIsInitialise;
 
-    osg::ref_ptr<osg::Camera> mGuiRoot;
-
     float mInvScalingFactor;
 
-    osg::StateSet* mInjectState;
+
+    bool mVRMode;
 
     void destroyAllResources();
 
@@ -93,20 +108,6 @@ public:
     // Called by the update traversal
     void update();
 
-    // Called by the cull traversal
-    /** @see IRenderTarget::begin */
-    void begin() override;
-    /** @see IRenderTarget::end */
-    void end() override;
-    /** @see IRenderTarget::doRender */
-    void doRender(MyGUI::IVertexBuffer *buffer, MyGUI::ITexture *texture, size_t count) override;
-
-    /** specify a StateSet to inject for rendering. The StateSet will be used by future doRender calls until you reset it to nullptr again. */
-    void setInjectState(osg::StateSet* stateSet);
-
-    /** @see IRenderTarget::getInfo */
-    const MyGUI::RenderTargetInfo& getInfo() OPENMW_MYGUI_CONST_GETTER_3_4_1 override { return mInfo; }
-
     bool checkTexture(MyGUI::ITexture* _texture);
 
     // setViewSize() is a part of MyGUI::RenderManager interface since 3.4.0 release
@@ -124,6 +125,8 @@ public:
 /*internal:*/
 
     void collectDrawCalls();
+    osg::ref_ptr<osg::Camera> createGUICamera(int order, std::string layerFilter);
+    void deleteGUICamera(GUICamera* camera);
 };
 
 }

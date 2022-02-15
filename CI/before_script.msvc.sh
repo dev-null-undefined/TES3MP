@@ -93,6 +93,9 @@ while [ $# -gt 0 ]; do
 		case $ARG in
 			V )
 				VERBOSE=true ;;
+				
+			nVR )
+				SKIP_VR=true ;;
 
 			d )
 				SKIP_DOWNLOAD=true ;;
@@ -555,14 +558,14 @@ if [ -z $SKIP_DOWNLOAD ]; then
 		"OpenAL-Soft-1.20.1.zip"
 
 	# OSG
-	download "OpenSceneGraph 3.6.5" \
-		"https://gitlab.com/OpenMW/openmw-deps/-/raw/main/windows/OSG-3.6.5-msvc${MSVC_REAL_YEAR}-win${BITS}.7z" \
-		"OSG-3.6.5-msvc${MSVC_REAL_YEAR}-win${BITS}.7z"
+	download "OpenSceneGraph 3.6.x" \
+		"https://gitlab.com/madsbuvi/openmw-deps/-/raw/openmw-vr/windows/OSG-3.6.x-msvc${MSVC_REAL_YEAR}-win${BITS}.7z" \
+		"OSG-3.6.x-msvc${MSVC_REAL_YEAR}-win${BITS}.7z"
 
 	if [ -n "$PDBS" ]; then
 		download "OpenSceneGraph symbols" \
-			"https://gitlab.com/OpenMW/openmw-deps/-/raw/main/windows/OSG-3.6.5-msvc${MSVC_REAL_YEAR}-win${BITS}-sym.7z" \
-			"OSG-3.6.5-msvc${MSVC_REAL_YEAR}-win${BITS}-sym.7z"
+			"https://gitlab.com/madsbuvi/openmw-deps/-/raw/openmw-vr/windows/OSG-3.6.x-msvc${MSVC_REAL_YEAR}-win${BITS}-sym.7z" \
+			"OSG-3.6.x-msvc${MSVC_REAL_YEAR}-win${BITS}-sym.7z"
 	fi
 
 	# SDL2
@@ -760,7 +763,7 @@ printf "OpenAL-Soft 1.20.1... "
 cd $DEPS
 echo
 # OSG
-printf "OSG 3.6.5... "
+printf "OSG 3.6.x... "
 {
 	cd $DEPS_INSTALL
 	if [ -d OSG ] && \
@@ -771,9 +774,9 @@ printf "OSG 3.6.5... "
 		printf "Exists. "
 	elif [ -z $SKIP_EXTRACT ]; then
 		rm -rf OSG
-		eval 7z x -y "${DEPS}/OSG-3.6.5-msvc${MSVC_REAL_YEAR}-win${BITS}.7z" $STRIP
-		[ -n "$PDBS" ] && eval 7z x -y "${DEPS}/OSG-3.6.5-msvc${MSVC_REAL_YEAR}-win${BITS}-sym.7z" $STRIP
-		mv "OSG-3.6.5-msvc${MSVC_REAL_YEAR}-win${BITS}" OSG
+		eval 7z x -y "${DEPS}/OSG-3.6.x-msvc${MSVC_REAL_YEAR}-win${BITS}.7z" $STRIP
+		[ -n "$PDBS" ] && eval 7z x -y "${DEPS}/OSG-3.6.x-msvc${MSVC_REAL_YEAR}-win${BITS}-sym.7z" $STRIP
+		mv "OSG-3.6.x-msvc${MSVC_REAL_YEAR}-win${BITS}" OSG
 	fi
 	OSG_SDK="$(real_pwd)/OSG"
 	add_cmake_opts -DOSG_DIR="$OSG_SDK"
@@ -783,7 +786,7 @@ printf "OSG 3.6.5... "
 		else
 			SUFFIX=""
 		fi
-		add_runtime_dlls $CONFIGURATION "$(pwd)/OSG/bin/"{OpenThreads,zlib,libpng}${SUFFIX}.dll \
+		add_runtime_dlls $CONFIGURATION "$(pwd)/OSG/bin/"{OpenThreads,zlib,libpng16}${SUFFIX}.dll \
 			"$(pwd)/OSG/bin/osg"{,Animation,DB,FX,GA,Particle,Text,Util,Viewer,Shadow}${SUFFIX}.dll
 		add_osg_dlls $CONFIGURATION "$(pwd)/OSG/bin/osgPlugins-3.6.5/osgdb_"{bmp,dds,freetype,jpeg,osg,png,tga}${SUFFIX}.dll
 		add_osg_dlls $CONFIGURATION "$(pwd)/OSG/bin/osgPlugins-3.6.5/osgdb_serializers_osg"{,animation,fx,ga,particle,text,util,viewer,shadow}${SUFFIX}.dll
@@ -934,6 +937,7 @@ printf "LZ4 1.9.2... "
 }
 cd $DEPS
 echo
+
 # Google Test and Google Mock
 if [ ! -z $TEST_FRAMEWORK ]; then
 	printf "Google test 1.10.0 ..."
@@ -988,6 +992,11 @@ if [ ! -z $TEST_FRAMEWORK ]; then
 
 fi
 
+# VR build
+if [ ! -Z $SKIP_VR ]; then
+	add_cmake_opts -DBUILD_VR_OPENXR=no
+fi
+
 echo
 cd $DEPS_INSTALL/..
 echo
@@ -1003,6 +1012,7 @@ if [ ! -z $CI ]; then
 				-DBUILD_MWINIIMPORTER=no \
 				-DBUILD_OPENCS=no \
 				-DBUILD_OPENMW=no \
+				-DBUILD_OPENMW_VR=no \
 				-DBUILD_WIZARD=no
 			;;
 		openmw )
@@ -1011,7 +1021,16 @@ if [ ! -z $CI ]; then
 				-DBUILD_LAUNCHER=no \
 				-DBUILD_MWINIIMPORTER=no \
 				-DBUILD_OPENCS=no \
+				-DBUILD_OPENMW_VR=no \
 				-DBUILD_WIZARD=no
+			;;
+		vr )
+			echo "  Building subproject: OpenMW-VR."
+			add_cmake_opts -DBUILD_ESSIMPORTER=no \
+				-DBUILD_OPENCS=no \
+				-DBUILD_BSATOOL=no \
+				-DBUILD_OPENMW=no \
+				-DBUILD_ESMTOOL=no 
 			;;
 		opencs )
 			echo "  Building subproject: OpenCS."
@@ -1019,12 +1038,14 @@ if [ ! -z $CI ]; then
 				-DBUILD_LAUNCHER=no \
 				-DBUILD_MWINIIMPORTER=no \
 				-DBUILD_OPENMW=no \
+				-DBUILD_OPENMW_VR=no \
 				-DBUILD_WIZARD=no
 			;;
 		misc )
 			echo "  Building subprojects: Misc."
 			add_cmake_opts -DBUILD_OPENCS=no \
-				-DBUILD_OPENMW=no
+				-DBUILD_OPENMW=no \
+				-DBUILD_OPENMW_VR=no
 			;;
 	esac
 fi

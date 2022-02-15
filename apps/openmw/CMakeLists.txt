@@ -170,7 +170,7 @@ include_directories(
     ${FFmpeg_INCLUDE_DIRS}
 )
 
-target_link_libraries(tes3mp
+set(OPENMW_LINK_TARGETS
     # CMake's built-in OSG finder does not use pkgconfig, so we have to
     # manually ensure the order is correct for inter-library dependencies.
     # This only makes a difference with `-DOPENMW_USE_SYSTEM_OSG=ON -DOSG_STATIC=ON`.
@@ -198,6 +198,16 @@ target_link_libraries(tes3mp
     ${RakNet_LIBRARY}
 )
 
+if (USE_SYSTEM_TINYXML)
+    set(OPENMW_LINK_TARGETS ${OPENMW_LINK_TARGETS}
+        ${TinyXML_LIBRARIES})
+endif()
+    
+if (NOT UNIX)
+    set(OPENMW_LINK_TARGETS ${OPENMW_LINK_TARGETS}
+        ${SDL2MAIN_LIBRARY})
+endif()
+
 if(OSG_STATIC)
     unset(_osg_plugins_static_files)
     add_library(openmw_osg_plugins INTERFACE)
@@ -214,30 +224,36 @@ if(OSG_STATIC)
     # We use --whole-archive because OSG plugins use registration.
     get_whole_archive_options(_opts ${_osg_plugins_static_files})
     target_link_options(openmw_osg_plugins INTERFACE ${_opts})
-    target_link_libraries(tes3mp openmw_osg_plugins)
+    set(OPENMW_LINK_TARGETS ${OPENMW_LINK_TARGETS}
+        openmw_osg_plugins)
 
     if(OPENMW_USE_SYSTEM_OSG)
         # OSG plugin pkgconfig files are missing these dependencies.
         # https://github.com/openscenegraph/OpenSceneGraph/issues/1052
-        target_link_libraries(tes3mp freetype jpeg png)
+        set(OPENMW_LINK_TARGETS ${OPENMW_LINK_TARGETS}
+            freetype jpeg png)
     endif()
 endif(OSG_STATIC)
 
 if (ANDROID)
-    target_link_libraries(tes3mp EGL android log z)
+    set(OPENMW_LINK_TARGETS ${OPENMW_LINK_TARGETS}
+        EGL android log z)
 endif (ANDROID)
 
 if (USE_SYSTEM_TINYXML)
-    target_link_libraries(tes3mp ${TinyXML_LIBRARIES})
+    set(OPENMW_LINK_TARGETS ${OPENMW_LINK_TARGETS}
+        ${TinyXML_LIBRARIES})
 endif()
 
 if (NOT UNIX)
-target_link_libraries(tes3mp ${SDL2MAIN_LIBRARY})
+    set(OPENMW_LINK_TARGETS ${OPENMW_LINK_TARGETS}
+        ${SDL2MAIN_LIBRARY})
 endif()
 
 # Fix for not visible pthreads functions for linker with glibc 2.15
 if (UNIX AND NOT APPLE)
-target_link_libraries(tes3mp ${CMAKE_THREAD_LIBS_INIT})
+    set(OPENMW_LINK_TARGETS ${OPENMW_LINK_TARGETS}
+        ${CMAKE_THREAD_LIBS_INIT})
 endif()
 
 if(APPLE)
@@ -252,24 +268,26 @@ if(APPLE)
     configure_file("${OpenMW_BINARY_DIR}/openmw.cfg" ${BUNDLE_RESOURCES_DIR} COPYONLY)
     configure_file("${OpenMW_BINARY_DIR}/gamecontrollerdb.txt" ${BUNDLE_RESOURCES_DIR} COPYONLY)
 
-    add_custom_command(TARGET openmw
-        POST_BUILD
-        COMMAND cp "${OpenMW_BINARY_DIR}/resources/version" "${BUNDLE_RESOURCES_DIR}/resources")
-
     find_library(COCOA_FRAMEWORK Cocoa)
     find_library(IOKIT_FRAMEWORK IOKit)
-    target_link_libraries(tes3mp ${COCOA_FRAMEWORK} ${IOKIT_FRAMEWORK})
+    set(OPENMW_LINK_TARGETS ${OPENMW_LINK_TARGETS}
+        ${COCOA_FRAMEWORK}
+        ${IOKIT_FRAMEWORK})
 
     if (FFmpeg_FOUND)
         find_library(COREVIDEO_FRAMEWORK CoreVideo)
         find_library(VDA_FRAMEWORK VideoDecodeAcceleration)
-        target_link_libraries(tes3mp z ${COREVIDEO_FRAMEWORK} ${VDA_FRAMEWORK})
+        set(OPENMW_LINK_TARGETS ${OPENMW_LINK_TARGETS}
+            z
+            ${COREVIDEO_FRAMEWORK}
+            ${VDA_FRAMEWORK})
     endif()
 endif(APPLE)
 
 if (BUILD_WITH_CODE_COVERAGE)
   add_definitions (--coverage)
-  target_link_libraries(tes3mp gcov)
+  set(OPENMW_LINK_TARGETS ${OPENMW_LINK_TARGETS}
+      gcov)
 endif()
 
 if (MSVC)
@@ -278,6 +296,95 @@ if (MSVC)
         set (CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /bigobj")
     endif (CMAKE_CL_64)
 endif (MSVC)
+    
+if(BUILD_OPENMW)
+    if (NOT ANDROID)
+        openmw_add_executable(openmw
+            ${OPENMW_FILES}
+            ${GAME} ${GAME_HEADER}
+            ${APPLE_BUNDLE_RESOURCES}
+        )
+    else ()
+        add_library(openmw
+            SHARED
+            ${OPENMW_FILES}
+            ${GAME} ${GAME_HEADER}
+        )
+    endif ()
+
+    target_link_libraries(tes3mp ${OPENMW_LINK_TARGETS})
+    
+    if(APPLE)
+        add_custom_command(TARGET tes3mp
+            POST_BUILD
+            COMMAND cp "${OpenMW_BINARY_DIR}/resources/version" "${BUNDLE_RESOURCES_DIR}/resources")
+    endif(APPLE)
+
+    if (WIN32)
+        INSTALL(TARGETS openmw RUNTIME DESTINATION ".")
+    endif (WIN32)
+endif()
+
+if(BUILD_OPENMW_VR)
+# Use of FetchContent to include the OpenXR SDK requires CMake 3.11
+    if(${CMAKE_VERSION} VERSION_LESS "3.11") 
+        message(FATAL_ERROR "Building openmw_vr requires CMake version 3.11 or later.")
+    endif()
+
+# TODO: Openmw and openmw_vr should preferrably share game code as a static or shared library
+# instead of being compiled separately, though for now that's not possible as i depend on
+# USE_OPENXR preprocessor switches.
+    set(OPENMW_VR_FILES
+        vrengine.cpp
+    )
+    add_openmw_dir (mwvr
+         openxraction openxractionset openxrdebug openxrinput openxrmanager openxrmanagerimpl openxrplatform openxrswapchain openxrswapchainimage openxrswapchainimpl openxrtracker openxrtypeconversions
+         realisticcombat 
+         vranimation vrcamera vrenvironment vrframebuffer vrgui vrinputmanager vrinput vrlistbox vrmetamenu vrpointer vrsession vrtracking vrtypes vrutil vrviewer vrvirtualkeyboard
+        )
+
+    openmw_add_executable(openmw_vr
+        ${OPENMW_FILES}
+        ${OPENMW_VR_FILES}
+        ${GAME} ${GAME_HEADER}
+        ${APPLE_BUNDLE_RESOURCES}
+    )
+
+    configure_resource_file(${OpenMW_SOURCE_DIR}/files/xrcontrollersuggestions.xml
+        "${OpenMW_BINARY_DIR}" "xrcontrollersuggestions.xml")
+    
+    ########### Import the OpenXR SDK
+    # Force the openxr-sdk to use its bundled jsoncpp to avoid problems from system jsoncpp if present
+    set(BUILD_WITH_SYSTEM_JSONCPP off) 
+    include(FetchContent)
+    FetchContent_Declare( 
+        OpenXR 
+        GIT_REPOSITORY https://github.com/KhronosGroup/OpenXR-SDK.git
+        GIT_TAG release-1.0.15
+    )
+    FetchContent_MakeAvailable(OpenXR)
+
+    target_link_libraries(openmw_vr openxr_loader)
+
+    # Preprocessor variable used to control code paths to vr code
+    if (WIN32)
+        target_compile_options(openmw_vr PUBLIC -DUSE_OPENXR -DXR_USE_GRAPHICS_API_OPENGL -DXR_USE_GRAPHICS_API_D3D11 -DXR_USE_PLATFORM_WIN32)
+    elseif(UNIX)
+        target_compile_options(openmw_vr PUBLIC -DUSE_OPENXR -DXR_USE_GRAPHICS_API_OPENGL -DXR_USE_PLATFORM_XLIB)
+        find_package(X11 REQUIRED)
+        target_link_libraries(openmw_vr ${X11_LIBRARIES})
+    endif()
+    target_link_libraries(openmw_vr ${OPENMW_LINK_TARGETS})
+    if(APPLE)
+        add_custom_command(TARGET openmw_vr
+            POST_BUILD
+            COMMAND cp "${OpenMW_BINARY_DIR}/resources/version" "${BUNDLE_RESOURCES_DIR}/resources")
+    endif(APPLE)
+
+    if (WIN32)
+        INSTALL(TARGETS openmw_vr RUNTIME DESTINATION ".")
+    endif (WIN32)
+endif()
 
 if (WIN32)
     INSTALL(TARGETS tes3mp RUNTIME DESTINATION ".")

@@ -24,11 +24,16 @@
 #include <components/sdlutil/sdlgraphicswindow.hpp>
 #include <components/sdlutil/imagetosurface.hpp>
 
+#include <components/shader/shadermanager.hpp>
+
 #include <components/resource/resourcesystem.hpp>
 #include <components/resource/scenemanager.hpp>
 #include <components/resource/stats.hpp>
 
 #include <components/compiler/extensions0.hpp>
+
+#include <components/misc/stereo.hpp>
+#include <components/misc/callbackmanager.hpp>
 
 #include <components/sceneutil/workqueue.hpp>
 
@@ -66,6 +71,7 @@
 #include "mwworld/worldimp.hpp"
 
 #include "mwrender/vismask.hpp"
+#include "mwrender/camera.hpp"
 
 #include "mwclass/classes.hpp"
 
@@ -76,6 +82,13 @@
 #include "mwmechanics/mechanicsmanagerimp.hpp"
 
 #include "mwstate/statemanagerimp.hpp"
+
+#ifdef USE_OPENXR
+#include "mwvr/vrinputmanager.hpp"
+#include "mwvr/vrviewer.hpp"
+#include "mwvr/vrgui.hpp"
+#include "mwvr/vrcamera.hpp"
+#endif
 
 namespace
 {
@@ -465,6 +478,9 @@ OMW::Engine::Engine(Files::ConfigurationManager& configurationManager)
   , mEncoding(ToUTF8::WINDOWS_1252)
   , mEncoder(nullptr)
   , mScreenCaptureOperation(nullptr)
+  , mStereoEnabled(false)
+  , mStereoOverride(false)
+  , mStereoView(nullptr)
   , mSkipMenu (false)
   , mUseSound (true)
   , mCompileAll (false)
@@ -507,6 +523,8 @@ OMW::Engine::~Engine()
     /*
         End of tes3mp addition
     */
+
+    mStereoView = nullptr;
 
     mEnvironment.cleanup();
 
@@ -616,6 +634,18 @@ std::string OMW::Engine::loadSettings (Settings::Manager & settings)
     const std::string settingspath = (mCfgMgr.getUserConfigPath() / "settings.cfg").string();
     if (boost::filesystem::exists(settingspath))
         settings.loadUser(settingspath);
+
+
+#ifdef USE_OPENXR
+    const std::string localoverrides = (mCfgMgr.getLocalPath() / "settings-overrides-vr.cfg").string();
+    const std::string globaloverrides = (mCfgMgr.getGlobalPath() / "settings-overrides-vr.cfg").string();
+    if (boost::filesystem::exists(localoverrides))
+        settings.loadOverrides(localoverrides);
+    else if (boost::filesystem::exists(globaloverrides))
+        settings.loadOverrides(globaloverrides);
+    else
+        throw std::runtime_error("No settings overrides file found! Make sure the file \"settings-overrides-vr.cfg\" was properly installed.");
+#endif
 
     return settingspath;
 }
@@ -734,6 +764,10 @@ void OMW::Engine::createWindow(Settings::Manager& settings)
     if (Debug::shouldDebugOpenGL())
         mViewer->setRealizeOperation(new Debug::EnableGLDebugOperation());
 
+#ifdef USE_OPENXR
+    initVr();
+#endif
+
     mViewer->realize();
 
     mViewer->getEventQueue()->getCurrentEventState()->setWindowRectangle(0, 0, graphicsWindow->getTraits()->width, graphicsWindow->getTraits()->height);
@@ -773,6 +807,8 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
     osg::ref_ptr<osg::Group> rootNode (new osg::Group);
     mViewer->setSceneData(rootNode);
 
+    mCallbackManager.reset(new Misc::CallbackManager(mViewer));
+
     mVFS.reset(new VFS::Manager(mFSStrict));
 
     VFS::registerArchives(mVFS.get(), mFileCollections, mArchives, true);
@@ -785,6 +821,7 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
         Settings::Manager::getString("texture mipmap", "General"),
         Settings::Manager::getInt("anisotropy", "General")
     );
+    mEnvironment.setResourceSystem(mResourceSystem.get());
 
     int numThreads = Settings::Manager::getInt("preload num threads", "Cells");
     if (numThreads <= 0)
@@ -838,24 +875,88 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
                 Version::getOpenmwVersionDescription(mResDir.string()), mCfgMgr.getUserConfigPath().string());
     mEnvironment.setWindowManager (window);
 
-    MWInput::InputManager* input = new MWInput::InputManager (mWindow, mViewer, mScreenCaptureHandler, mScreenCaptureOperation, keybinderUser, keybinderUserExists, userGameControllerdb, gameControllerdb, mGrab);
+#ifdef USE_OPENXR
+    const std::string xrinputuserdefault = mCfgMgr.getUserConfigPath().string() + "/xrcontrollersuggestions.xml";
+    const std::string xrinputlocaldefault = mCfgMgr.getLocalPath().string() + "/xrcontrollersuggestions.xml";
+    const std::string xrinputglobaldefault = mCfgMgr.getGlobalPath().string() + "/xrcontrollersuggestions.xml";
+
+    std::string xrControllerSuggestions;
+    if (boost::filesystem::exists(xrinputuserdefault))
+        xrControllerSuggestions = xrinputuserdefault;
+    else if (boost::filesystem::exists(xrinputlocaldefault))
+        xrControllerSuggestions = xrinputlocaldefault;
+    else if (boost::filesystem::exists(xrinputglobaldefault))
+        xrControllerSuggestions = xrinputglobaldefault;
+    else
+        xrControllerSuggestions = ""; //if it doesn't exist, pass in an empty string
+
+    Log(Debug::Verbose) << "xrinputuserdefault: " << xrinputuserdefault;
+    Log(Debug::Verbose) << "xrinputlocaldefault: " << xrinputlocaldefault;
+    Log(Debug::Verbose) << "xrinputglobaldefault: " << xrinputglobaldefault;
+
+    MWInput::InputManager* input =
+        new MWVR::VRInputManager(mWindow, mViewer, mScreenCaptureHandler, mScreenCaptureOperation, keybinderUser, keybinderUserExists, userGameControllerdb, gameControllerdb, mGrab, xrControllerSuggestions);
+#else
+    MWInput::InputManager* input =
+        new MWInput::InputManager (mWindow, mViewer, mScreenCaptureHandler, mScreenCaptureOperation, keybinderUser, keybinderUserExists, userGameControllerdb, gameControllerdb, mGrab);
+#endif
     mEnvironment.setInputManager (input);
 
     // Create sound system
     mEnvironment.setSoundManager (new MWSound::SoundManager(mVFS.get(), mUseSound));
 
+
+    if (mStereoEnabled)
+    {
+        // Set up stereo
+        // Stereo setup is split in two because the GeometryShader approach cannot be used before the RenderingManager has been created.
+        // To be able to see the logo and initial loading screen the BruteForce technique must be set up here.
+        mStereoView->initializeStereo(mViewer, Misc::StereoView::Technique::BruteForce);
+        mResourceSystem->getSceneManager()->getShaderManager().setStereoGeometryShaderEnabled(Misc::getStereoTechnique() == Misc::StereoView::Technique::GeometryShader_IndexedViewports);
+    }
+
+#ifdef USE_OPENXR
+    mXrEnvironment.setGUIManager(new MWVR::VRGUIManager(mViewer, mResourceSystem.get(), rootNode));
+    mXrEnvironment.getViewer()->configureCallbacks();
+    mStereoView->setCullMask(mStereoView->getCullMask() & ~MWRender::VisMask::Mask_GUI);
+#endif
+
+    
+#ifdef USE_OPENXR
+    MWVR::VRCamera* camera = new MWVR::VRCamera(mViewer->getCamera());
+#else
+    MWRender::Camera* camera = new MWRender::Camera(mViewer->getCamera());
+#endif
+    
+
     if (!mSkipMenu)
     {
         const std::string& logo = Fallback::Map::getString("Movies_Company_Logo");
         if (!logo.empty())
-            window->playVideo(logo, true);
+            mEnvironment.getWindowManager()->playVideo(logo, true);
     }
 
     // Create the world
-    mEnvironment.setWorld( new MWWorld::World (mViewer, rootNode, mResourceSystem.get(), mWorkQueue.get(),
+    mEnvironment.setWorld( new MWWorld::World (mViewer, rootNode, std::unique_ptr<MWRender::Camera>(camera), mResourceSystem.get(), mWorkQueue.get(),
         mFileCollections, mContentFiles, mGroundcoverFiles, mEncoder, mActivationDistanceOverride, mCellName,
         mStartupScript, mResDir.string(), mCfgMgr.getUserDataPath().string()));
     mEnvironment.getWorld()->setupPlayer();
+
+#ifdef USE_OPENXR
+    // TODO: Workaround. Needed to stop camera from querying the world object before it is created.
+    // This will be prettier when i clean up the tracking logic.
+    camera->setShouldTrackPlayerCharacter(true);
+#endif
+
+    if (mStereoEnabled)
+    {
+        // Stereo shader technique can be set up now.
+        mStereoView->setStereoTechnique(Misc::getStereoTechnique());
+        mStereoView->initializeScene();
+
+        if (mEnvironment.getVrMode())
+            mStereoView->setCullMask(mStereoView->getCullMask() & ~MWRender::VisMask::Mask_GUI);
+    }
 
     window->setStore(mEnvironment.getWorld()->getStore());
     window->initUI();
@@ -881,7 +982,6 @@ void OMW::Engine::prepareEngine (Settings::Manager & settings)
     // Create dialog system
     mEnvironment.setJournal (new MWDialogue::Journal);
     mEnvironment.setDialogueManager (new MWDialogue::DialogueManager (mExtensions, mTranslationDataStorage));
-    mEnvironment.setResourceSystem(mResourceSystem.get());
 
     // scripts
     if (mCompileAll)
@@ -984,6 +1084,22 @@ void OMW::Engine::go()
 
     // Create encoder
     mEncoder = new ToUTF8::Utf8Encoder(mEncoding);
+
+#ifdef USE_OPENXR
+    mEnvironment.setVrMode(true);
+#endif
+
+    // geometry shader must be enabled before the RenderingManager sets up any shaders
+    // therefore this part is separate from the rest of stereo setup.
+    mStereoEnabled = mEnvironment.getVrMode() || Settings::Manager::getBool("stereo enabled", "Stereo");
+    if (mStereoEnabled)
+    {
+        // Mask in everything that does not currently use shaders.
+        // Remove that altogether when the sky finally uses them.
+        auto noShaderMask = MWRender::VisMask::Mask_Sky | MWRender::VisMask::Mask_Sun | MWRender::VisMask::Mask_WeatherParticles;
+        // Since shaders are not yet created, we need to use the brute force technique initially
+        mStereoView.reset(new Misc::StereoView(noShaderMask, MWRender::VisMask::Mask_Scene));
+    }
 
     // Setup viewer
     mViewer = new osgViewer::Viewer;
@@ -1093,12 +1209,7 @@ void OMW::Engine::go()
         }
         else
         {
-            mViewer->eventTraversal();
-            mViewer->updateTraversal();
-
-            mEnvironment.getWorld()->updateWindowManager();
-
-            mViewer->renderingTraversals();
+            mEnvironment.getWindowManager()->viewerTraversals(true);
 
             bool guiActive = mEnvironment.getWindowManager()->isGuiMode();
 

@@ -55,9 +55,9 @@ namespace MWClass
             MWMechanics::CreatureStats& getCreatureStats (const MWWorld::Ptr& ptr) const override;
             ///< Return creature stats
 
-            void hit(const MWWorld::Ptr& ptr, float attackStrength, int type) const override;
+            bool hit(const MWWorld::Ptr& ptr, float attackStrength, int type, bool simulated) const override;
 
-            void onHit(const MWWorld::Ptr &ptr, float damage, bool ishealth, const MWWorld::Ptr &object, const MWWorld::Ptr &attacker, const osg::Vec3f &hitPosition, bool successful) const override;
+            void onHit(const MWWorld::Ptr &ptr, float damage, bool ishealth, const MWWorld::Ptr &object, const MWWorld::Ptr &attacker, const osg::Vec3f &hitPosition, bool successful, float hitStrength) const override;
 
             std::shared_ptr<MWWorld::Action> activate (const MWWorld::Ptr& ptr,
                 const MWWorld::Ptr& actor) const override;

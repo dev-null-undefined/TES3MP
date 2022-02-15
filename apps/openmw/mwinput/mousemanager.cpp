@@ -63,6 +63,9 @@ namespace MWInput
 
     void MouseManager::mouseMoved(const SDLUtil::MouseMotionEvent &arg)
     {
+        if (MWBase::Environment::get().getVrMode())
+            return;
+
         mBindingsManager->mouseMoved(arg);
 
         MWBase::InputManager* input = MWBase::Environment::get().getInputManager();
@@ -235,6 +238,8 @@ namespace MWInput
 
     void MouseManager::injectMouseMove(float xMove, float yMove, float mouseWheelMove)
     {
+        if (MWBase::Environment::get().getVrMode())
+            return;
         mGuiCursorX += xMove;
         mGuiCursorY += yMove;
         mMouseWheel += mouseWheelMove;
@@ -250,5 +255,12 @@ namespace MWInput
     {
         float uiScale = MWBase::Environment::get().getWindowManager()->getScalingFactor();
         mInputWrapper->warpMouse(static_cast<int>(mGuiCursorX*uiScale), static_cast<int>(mGuiCursorY*uiScale));
+    }
+
+    void MouseManager::setMousePosition(int x, int y)
+    {
+        float uiScale = MWBase::Environment::get().getWindowManager()->getScalingFactor();
+        mGuiCursorX = x / uiScale;
+        mGuiCursorY = y / uiScale;
     }
 }
