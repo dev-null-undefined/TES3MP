@@ -143,7 +143,7 @@ void MainWindow::play()
         arguments.append(QLatin1String("--password=") + passw.toLatin1());
     }
 
-    if (mGameInvoker->startProcess(QLatin1String("tes3mp"), arguments, true))
+    if (mGameInvoker->startProcess(QLatin1String("tes3mp_vr"), arguments, true))
         return qApp->quit();
 }
 
