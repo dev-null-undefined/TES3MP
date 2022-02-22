@@ -5,6 +5,18 @@
 
 #include "../mwmechanics/weapontype.hpp"
 
+/*
+    Start of tes3mp addition
+
+    Include additional headers for multiplayer purposes
+*/
+#include "../mwmp/Main.hpp"
+#include "../mwmp/LocalPlayer.hpp"
+#include "../mwmp/MechanicsHelper.hpp"
+/*
+    End of tes3mp addition
+*/
+
 #include <components/debug/debuglog.hpp>
 
 #include <iomanip>
@@ -236,6 +248,23 @@ namespace MWVR {
                 }
             }
 
+            /*
+                Start of tes3mp addition
+
+                Record the attack animation chosen so we can send it in the next PlayerAttack packet
+            */
+            mwmp::LocalPlayer* localPlayer = mwmp::Main::get().getLocalPlayer();
+
+            if (mSwingType == ESM::Weapon::AT_Chop)
+                localPlayer->attack.attackAnimation = "chop";
+            else if (mSwingType == ESM::Weapon::AT_Slash)
+                localPlayer->attack.attackAnimation = "slash";
+            else if (mSwingType == ESM::Weapon::AT_Thrust)
+                localPlayer->attack.attackAnimation = "thrust";
+            /*
+                End of tes3mp addition
+            */
+
             switch (mState)
             {
             case SwingState_Cooldown:
@@ -256,7 +285,21 @@ namespace MWVR {
         void StateMachine::update_cooldownState()
         {
             if (mTimeSinceEnteredState >= mMinimumPeriod)
+            {
+                /*
+                    Start of tes3mp addition
+
+                    Reset the booleans tracking VR swing start and end
+                */
+                mwmp::LocalPlayer* localPlayer = mwmp::Main::get().getLocalPlayer();
+                localPlayer ->sentVRSwingStart = false;
+                localPlayer->sentVRSwingEnd = false;
+                /*
+                    End of tes3mp addition
+                */
+
                 transition_cooldownToReady();
+            }
         }
 
         void StateMachine::transition_cooldownToReady()
@@ -272,6 +315,25 @@ namespace MWVR {
 
         void StateMachine::transition_readyToLaunch()
         {
+            /*
+                Start of tes3mp addition
+
+                Send an ID_PLAYER_ATTACK packet with this attack
+            */
+            if (!mwmp::Main::get().getLocalPlayer()->sentVRSwingStart)
+            {
+                mwmp::LocalPlayer* localPlayer = mwmp::Main::get().getLocalPlayer();
+                localPlayer->sentVRSwingStart = true;
+                MechanicsHelper::resetAttack(&localPlayer->attack);
+                localPlayer->attack.type = mwmp::Attack::MELEE;
+                localPlayer->attack.pressed = true;
+                localPlayer->attack.shouldSend = true;
+                localPlayer->updateAttackOrCast();
+            }
+            /*
+                End of tes3mp addition
+            */
+
             transition(SwingState_Launch);
         }
 
@@ -305,6 +367,25 @@ namespace MWVR {
 
         void StateMachine::transition_launchToSwing()
         {
+            /*
+                Start of tes3mp addition
+
+                Send an ID_PLAYER_ATTACK packet with this attack
+            */
+            if (!mwmp::Main::get().getLocalPlayer()->sentVRSwingEnd)
+            {
+                mwmp::LocalPlayer* localPlayer = mwmp::Main::get().getLocalPlayer();
+                localPlayer->sentVRSwingEnd = true;
+                MechanicsHelper::resetAttack(&localPlayer->attack);
+                localPlayer->attack.type = mwmp::Attack::MELEE;
+                localPlayer->attack.pressed = false;
+                localPlayer->attack.shouldSend = true;
+                localPlayer->updateAttackOrCast();
+            }
+            /*
+                End of tes3mp addition
+            */
+
             playSwish();
             transition(SwingState_Swing);
 
