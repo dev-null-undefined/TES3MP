@@ -17,6 +17,18 @@
 
 #include "../mwmechanics/movement.hpp"
 
+/*
+    Start of tes3mp addition
+
+    Include additional headers for multiplayer purposes
+*/
+#include "../mwmp/Main.hpp"
+#include "../mwmp/Networking.hpp"
+#include "../mwmp/LocalPlayer.hpp"
+/*
+    End of tes3mp addition
+*/
+
 #include <osg/Quat>
 
 namespace MWVR
@@ -80,6 +92,18 @@ namespace MWVR
         if (!player.isDisabled() && mTrackingNode)
         {
             world->rotateObject(playerPtr, pitch, 0.f, yaw, MWBase::RotationFlag_none);
+
+            /*
+                Start of tes3mp addition
+
+                Set the player's direction here, because VR doesn't do it from CharacterController::update()
+            */
+            mwmp::LocalPlayer *localPlayer = mwmp::Main::get().getLocalPlayer();
+            localPlayer->direction.rot[0] = playerPtr.getRefData().getPosition().rot[0] - localPlayer->position.rot[0];
+            localPlayer->direction.rot[2] = playerPtr.getRefData().getPosition().rot[2] - localPlayer->position.rot[2];
+            /*
+                End of tes3mp addition
+            */
         }
     }
 
