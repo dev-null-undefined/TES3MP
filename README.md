@@ -10,7 +10,7 @@ When it's combined with Mads Buvik Sandvei's [fork adding VR support to OpenMW](
 
 * TES3MP version: 0.8.0
 * OpenMW version: 0.47.0
-* License: GPLv3 (see [LICENSE](https://github.com/TES3MP/TES3MP/blob/master/LICENSE) for more information)
+* License: GPLv3 with additional allowed terms (see [LICENSE](https://github.com/TES3MP/TES3MP/blob/master/LICENSE) for more information)
 
 Font Licenses:
 * DejaVuLGCSansMono.ttf: custom (see [files/mygui/DejaVuFontLicense.txt](https://github.com/TES3MP/TES3MP/blob/master/files/mygui/DejaVuFontLicense.txt) for more information)
