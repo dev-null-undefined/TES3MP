@@ -186,7 +186,25 @@ namespace MWVR
                 {
                     if (wm->getMode() != MWGui::GM_Container && wm->getMode() != MWGui::GM_Inventory)
                         return;
-                    wm->getInventoryWindow()->pickUpObject(ptr);
+                    /*
+                        Start of tes3mp change (major)
+
+                        Disable unilateral picking up of objects on this client
+
+                        Instead, send an ID_OBJECT_ACTIVATE packet every time an attempt is made to pick up
+                        an item here and expect the server's reply to our packet to cause the actual
+                        picking up of items
+                    */
+                    //wm->getInventoryWindow()->pickUpObject(ptr);
+
+                    mwmp::ObjectList *objectList = mwmp::Main::get().getNetworking()->getObjectList();
+                    objectList->reset();
+                    objectList->packetOrigin = mwmp::CLIENT_GAMEPLAY;
+                    objectList->addObjectActivate(ptr, MWMechanics::getPlayer());
+                    objectList->sendObjectActivate();
+                    /*
+                        End of tes3mp change (major)
+                    */
                 }
                 else
                 {
