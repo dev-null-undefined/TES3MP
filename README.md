@@ -8,7 +8,7 @@ TES3MP is a project adding multiplayer functionality to [OpenMW](https://github.
 
 When it's combined with Mads Buvik Sandvei's [fork adding VR support to OpenMW](https://gitlab.com/madsbuvi/openmw), the result is TES3MP VR.
 
-* TES3MP version: 0.8.0
+* TES3MP version: 0.8.1
 * OpenMW version: 0.47.0
 * License: GPLv3 with additional allowed terms (see [LICENSE](https://github.com/TES3MP/TES3MP/blob/master/LICENSE) for more information)
 
