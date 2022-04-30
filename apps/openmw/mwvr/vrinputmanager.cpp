@@ -36,6 +36,18 @@
 #include "../mwrender/renderingmanager.hpp"
 #include "../mwrender/camera.hpp"
 
+/*
+    Start of tes3mp addition
+
+    Include additional headers for multiplayer purposes
+*/
+#include "../mwmp/Main.hpp"
+#include "../mwmp/Networking.hpp"
+#include "../mwmp/ObjectList.hpp"
+/*
+    End of tes3mp addition
+*/
+
 #include <extern/oics/ICSInputControlSystem.h>
 #include <extern/oics/tinyxml.h>
 
@@ -95,6 +107,32 @@ namespace MWVR
             else
                 dropped = world->dropObjectOnGround(world->getPlayerPtr(), item.mBase, count);
             dropped.getCellRef().setOwner("");
+
+            /*
+                Start of tes3mp addition
+
+                Send an ID_OBJECT_PLACE packet every time an object is dropped into the world from
+                the inventory screen
+            */
+            mwmp::ObjectList* objectList = mwmp::Main::get().getNetworking()->getObjectList();
+            objectList->reset();
+            objectList->packetOrigin = mwmp::CLIENT_GAMEPLAY;
+            objectList->addObjectPlace(dropped, true);
+            objectList->sendObjectPlace();
+            /*
+                End of tes3mp addition
+            */
+
+            /*
+                Start of tes3mp change (major)
+
+                Instead of actually keeping this object as is, delete it after sending the packet
+                and wait for the server to send it back with a unique mpNum of its own
+            */
+            MWBase::Environment::get().getWorld()->deleteObject(dropped);
+            /*
+                End of tes3mp change (major)
+            */
 
             return dropped;
         }
