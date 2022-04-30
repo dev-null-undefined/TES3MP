@@ -1338,7 +1338,7 @@ True: In non-combat mode camera is positioned behind the character's shoulder. C
              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;The velocity at which max strength of attack is achieved when swinging your motion controllers. In meters/second&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
             </property>
             <property name="text">
-             <string>Realistic melee combat minimum swing speed</string>
+             <string>Realistic melee combat maximum swing speed</string>
             </property>
            </widget>
           </item>
