@@ -18,7 +18,7 @@
         </Widget>
         
         <Widget type="AutoSizedButton" skin="MW_Button" name="chat" align="HCenter">
-            <Property key="Caption" value="Chat"/>
+            <Property key="Caption" value="Chat Window Mode"/>
             <Property key="FontHeight" value="32"/>
         </Widget>
 
