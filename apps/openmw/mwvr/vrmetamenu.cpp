@@ -13,6 +13,7 @@
     Include additional headers for multiplayer purposes
 */
 #include "../mwmp/Main.hpp"
+#include "../mwmp/LocalPlayer.hpp"
 #include "../mwmp/GUIController.hpp"
 /*
     End of tes3mp addition
@@ -63,6 +64,20 @@ namespace MWVR
     {
         if (MyGUI::InputManager::getInstance().isModalAny())
             return;
+
+        /*
+            Start of tes3mp addition
+
+            If a player's console is disabled by the server, send them a message about it and go no further
+        */
+        if (!mwmp::Main::get().getLocalPlayer()->consoleAllowed)
+        {
+            MWBase::Environment::get().getWindowManager()->messageBox("You do not have permission to use that.");
+            return;
+        }
+        /*
+            End of tes3mp addition
+        */
 
         MWBase::Environment::get().getWindowManager()->toggleConsole();
     }
