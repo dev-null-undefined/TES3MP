@@ -19,4 +19,6 @@
     <Layer name="MessageBox" overlapped="false" pick="true"/>
     <Layer name="InputBlocker" overlapped="false" pick="true"/>
     <Layer name="Pointer" overlapped="false" pick="false"/>
+    <Layer name="Console" overlapped="true" pick="true"/>
+    <Layer name="Chat" overlapped="true" pick="true"/>
 </MyGUI>

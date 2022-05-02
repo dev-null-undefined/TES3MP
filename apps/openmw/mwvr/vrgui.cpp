@@ -529,6 +529,8 @@ namespace MWVR
         LayerConfig mapWindowConfig = createSideBySideConfig(3);
         LayerConfig inventoryCompanionWindowConfig = createSideBySideConfig(4);
         LayerConfig dialogueWindowConfig = createSideBySideConfig(5);
+        LayerConfig chatWindowConfig = createSideBySideConfig(6);
+        LayerConfig consoleWindowConfig = createSideBySideConfig(7);
 
         osg::Vec3 leftHudOffset = gLeftHudOffsetWrist;
 
@@ -605,6 +607,8 @@ namespace MWVR
             {"Menu", videoPlayerConfig},
             {"LoadingScreen", loadingScreenConfig},
             {"VirtualKeyboard", virtualKeyboardConfig},
+            {"Chat", chatWindowConfig},
+            {"Console", consoleWindowConfig},
         };
     }
 
